@@ -67,6 +67,16 @@ create table if not exists verdicts (
   created_at timestamptz not null default now()
 );
 
+-- RLS sur les nouvelles tables : les agents s'y connectent en direct (psql, rôle
+-- postgres — non soumis au RLS), donc aucune policy n'est nécessaire. Sans ça, ces
+-- tables du schéma public seraient lisibles et modifiables via PostgREST avec la
+-- clé anon. Les tables préexistantes ont déjà RLS activé.
+alter table sources   enable row level security;
+alter table carte_naf enable row level security;
+alter table reserves  enable row level security;
+alter table doctrine  enable row level security;
+alter table verdicts  enable row level security;
+
 -- ------------------------------------------------------------
 -- 2. Évolutions des tables existantes
 -- ------------------------------------------------------------
