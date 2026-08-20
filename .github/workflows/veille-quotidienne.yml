@@ -1,0 +1,103 @@
+name: Veille quotidienne
+
+on:
+  schedule:
+    - cron: "30 4 * * *"   # tous les jours, 04:30 UTC (06:30 Paris été / 05:30 hiver)
+  workflow_dispatch:        # lançable à la main depuis l'app GitHub mobile
+
+permissions:
+  contents: read
+
+# Un seul pipeline à la fois (un run manuel n'entre pas en collision avec le cron)
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+env:
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+  FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+
+jobs:
+  kiosque:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent KIOSQUE. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/kiosque.md, et exécute intégralement ta mission du jour."
+          claude_args: "--model claude-sonnet-4-6 --max-turns 40 --dangerously-skip-permissions"
+
+  prospecteur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent PROSPECTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/prospecteur.md, et exécute intégralement ta mission du jour."
+          claude_args: "--model claude-sonnet-4-6 --max-turns 40 --dangerously-skip-permissions"
+
+  instructeur:
+    needs: [kiosque, prospecteur]
+    if: ${{ !cancelled() }}       # tourne même si un collecteur a planté (le vivier existe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent INSTRUCTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/instructeur.md, et exécute intégralement ta mission du jour."
+          claude_args: "--max-turns 70 --dangerously-skip-permissions"
+
+  contre-avocat:
+    needs: [instructeur]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent CONTRE-AVOCAT. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/contre-avocat.md, et exécute intégralement ta mission du jour."
+          claude_args: "--max-turns 50 --dangerously-skip-permissions"
+
+  atelier:
+    needs: [kiosque, prospecteur, instructeur, contre-avocat]
+    if: ${{ always() }}           # le mémo part TOUS les jours, même si tout a cassé
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent ATELIER. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/atelier.md, et exécute intégralement ta mission du jour. Statuts des jobs amont — kiosque: ${{ needs.kiosque.result }}, prospecteur: ${{ needs.prospecteur.result }}, instructeur: ${{ needs.instructeur.result }}, contre-avocat: ${{ needs['contre-avocat'].result }}. Si un job amont a échoué, dis-le en tête du mémo."
+          claude_args: "--max-turns 35 --dangerously-skip-permissions"
+      - name: Préparer le mémo
+        id: memo
+        if: ${{ always() }}
+        run: |
+          if [ ! -s /tmp/memo.md ]; then
+            echo "⚠️ Mémo introuvable : l'agent Atelier n'a pas produit /tmp/memo.md. Voir les logs du run GitHub Actions." > /tmp/memo.md
+          fi
+          { echo 'MEMO<<MEMO_EOF'; cat /tmp/memo.md; echo; echo 'MEMO_EOF'; } >> "$GITHUB_OUTPUT"
+      - name: Envoyer le mémo par email
+        if: ${{ always() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Veille SaaS
+          to: ${{ secrets.GMAIL_USER }}
+          subject: "🧭 Veille SaaS — mémo du jour"
+          convert_markdown: true
+          html_body: ${{ steps.memo.outputs.MEMO }}

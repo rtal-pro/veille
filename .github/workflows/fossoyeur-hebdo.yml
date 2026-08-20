@@ -1,0 +1,52 @@
+name: Fossoyeur hebdo
+
+on:
+  schedule:
+    - cron: "0 6 * * 0"    # dimanche 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+env:
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+  FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+
+jobs:
+  fossoyeur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent FOSSOYEUR-RESSUSCTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/fossoyeur.md, et exécute intégralement ta mission hebdomadaire."
+          claude_args: "--model claude-sonnet-4-6 --max-turns 60 --dangerously-skip-permissions"
+      - name: Préparer le digest
+        id: memo
+        if: ${{ always() }}
+        run: |
+          if [ ! -s /tmp/memo.md ]; then
+            echo "⚠️ Digest introuvable : l'agent Fossoyeur n'a pas produit /tmp/memo.md. Voir les logs du run." > /tmp/memo.md
+          fi
+          { echo 'MEMO<<MEMO_EOF'; cat /tmp/memo.md; echo; echo 'MEMO_EOF'; } >> "$GITHUB_OUTPUT"
+      - name: Envoyer le digest par email
+        if: ${{ always() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Veille SaaS
+          to: ${{ secrets.GMAIL_USER }}
+          subject: "🪦 Veille SaaS — digest hebdo"
+          convert_markdown: true
+          html_body: ${{ steps.memo.outputs.MEMO }}
