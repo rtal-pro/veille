@@ -27,8 +27,11 @@ tu ne modifies JAMAIS rien en base.
 4. Puis un brief de 10 lignes max : les GO du jour avec leur verdict office hours et
    le premier pas de build ; 1-2 autopsies marquantes ; l'état du vivier ; le top 3
    du backlog (score_atelier->>'note_sur_10') si je veux lancer un build.
-5. Le samedi, ajoute 3 lignes sur l'audit du Superviseur (table audits : diagnostic +
-   expérience mergée). Le dimanche, 3 lignes sur le digest du Fossoyeur
+5. Le samedi, ajoute 3 lignes : le diagnostic de l'audit
+   (`SELECT diagnostic FROM audits WHERE date_audit=CURRENT_DATE ORDER BY id DESC LIMIT 1;`)
+   et l'expérience mergée cette semaine
+   (`SELECT resume, hypothese, date_evaluation FROM modifications WHERE statut='en_evaluation'
+   ORDER BY id DESC LIMIT 1;`). Le dimanche, 3 lignes sur le digest du Fossoyeur
    (verdicts WHERE type='hebdo' AND date_run=CURRENT_DATE).
 
 Bref, dense, zéro préambule : c'est une notification, pas un rapport.

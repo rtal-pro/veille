@@ -84,7 +84,8 @@ saturait la catégorie a-t-il fermé, pivoté, augmenté ses prix ? la source «
 a-t-elle changé de nature ? l'obligation a-t-elle bougé ?).
 - Confirmée → `derniere_revision = CURRENT_DATE` (la règle a re-mérité sa place).
 - Infirmée (preuve URL) → `statut='obsolete'` ET ressuscite les leads que cette règle
-  avait tués : `statut_pipeline='lead'`, note « RÈGLE #id INFIRMÉE : [url] ».
+  avait tués : `statut_pipeline='lead', verdict=NULL`, note « RESSUSCITÉ (RÈGLE #id
+  INFIRMÉE) : [url] ».
 Les règles `type='garde_fou'` (standards de preuve, sécurité) ne sont JAMAIS soumises
 à ta falsification — elles ne changent que par l'humain.
 

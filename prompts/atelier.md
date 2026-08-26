@@ -32,7 +32,7 @@ Pour chacun, remplis `score_atelier` (jsonb) :
 
 **Présentation** : un survivant avec `date_run = CURRENT_DATE - 0..2` est un **GO du
 jour**. Un survivant plus ancien qui apparaît ici (ressuscité, backlog jamais scoré)
-va dans la section **« Backlog reclassé »** du mémo, jamais en GO du jour. Le
+va dans la section **« Backlog classé »** du mémo, jamais en GO du jour. Le
 `score_atelier` que tu poses est le marqueur « déjà annoncé » : ne re-score jamais
 une fiche déjà scorée.
 
@@ -49,7 +49,9 @@ Compile en Markdown (en français) :
 - **GO du jour** (survivants) : pour chacun, le mémo office hours + les 4 jambes avec URLs
   + l'essentiel du rapport d'attaque.
 - **Backlog classé** : top 5 des `statut_pipeline='survivant'` historiques par
-  `note_sur_10` non encore construits — c'est là que tu piocheras ton prochain build.
+  `note_sur_10` non encore construits, plus les survivants plus anciens reclassés
+  aujourd'hui (cf. règle de Présentation ci-dessus) — c'est là que tu piocheras ton
+  prochain build.
 - **Autopsies du jour** : les tués, en une ligne chacun (nom → tueur → condition de résurrection).
 - **Découvertes** : sources neuves prometteuses, secteur NAF foré, réserve levée/confirmée.
 - **Si zéro GO (rattrapage compris)** : c'est un **JOUR ROUGE** — un incident, pas une
