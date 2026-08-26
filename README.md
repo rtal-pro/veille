@@ -8,18 +8,19 @@ avec ton abonnement **Claude Max** — aucun PC, aucune clé API, aucune facture
 ## Architecture
 
 ```
-04:30 UTC ── preflight (secrets) ─► migrations (000→006, psql -1) ─► porte (verdict du jour ?)
-              ├─ KIOSQUE (sonnet-5) ─────┐  lit comme un passionné, mine idées + sources citées
+04:30 UTC ── preflight (secrets) ─► migrations (000→006, psql -1) ─► porte (verdict du jour ? passe mémo ou récolte ?)
+ PASSE MÉMO   ├─ KIOSQUE (sonnet-5) ─────┐  lit comme un passionné, mine idées + sources citées
               └─ PROSPECTEUR (sonnet-5) ─┤  fore un secteur NAF vierge → sources neuves
                                          ▼
-               INSTRUCTEUR (opus-5) ────►  instruit ≤4 leads (+1 réserve), trou FR d'abord
+               INSTRUCTEUR (opus-5) ────►  instruit ≤4 leads — jusqu'à 6-7 si vivier riche (+1 réserve), trou FR d'abord
                                          ▼
                CONTRE-AVOCAT (sonnet-5) ►  attaque TOUTE la file ; les survivants = GO
                                          ▼
                RATTRAPAGE (sonnet-5) ───►  aucun survivant récent (fenêtre 3 j) ? 2e vague
                                          ▼
                ATELIER (sonnet-5) ──────►  score solo-dev + mémo quotidien → 📧 (fallback 🛑 issue)
-11:00 UTC ── même workflow, cron de reprise : la porte saute tout si le verdict du jour existe
+09·13·17 UTC ── PASSES RÉCOLTE : Kiosque + Prospecteur seuls remplissent le vivier (jugement + mémo sautés)
+11:00 UTC ── reprise mémo (filet quota) : la porte saute le jugement si le verdict du jour existe
 09:30 UTC ── VIGIE (garde-fou, sans LLM) : pipeline parti aujourd'hui ? + keepalive 45 j
 push main ── GENDARME (sans LLM) : valider.sh sur le diff poussé → revert auto si non conforme
 sam. 13:00 ── SUPERVISEUR (sonnet-5) ──►  audit KPIs + runs GitHub → 1 PR d'amélioration/sem. → 📧
@@ -96,7 +97,7 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | `SUPABASE_DB_URL_AGENT` | même chaîne pooler, mais avec l'utilisateur `agent_veille.<project-ref>` — le rôle restreint (pas de DELETE, pas de DDL) que tu généreras à l'**étape 6 ter**. Reviens créer ce secret une fois cette étape faite ; c'est lui que lisent tous les jobs agents (mappé sur l'env `SUPABASE_DB_URL` qu'attendent les prompts). |
 | `GMAIL_USER` | ton adresse Gmail |
 | `GMAIL_APP_PASSWORD` | un **mot de passe d'application** Gmail (myaccount.google.com → Sécurité → Validation en 2 étapes → Mots de passe des applications) |
-| `FIRECRAWL_API_KEY` | *(optionnel)* clé du free tier firecrawl.dev, pour les sites à anti-bot |
+| `FIRECRAWL_API_KEY` | *(optionnel)* clé du free tier firecrawl.dev — moteur de découverte FR large (`/search` + `/map`), et déblocage des sites à anti-bot |
 
 (Un 7e secret, `SUPERVISEUR_PAT`, se crée à l'étape 6 bis ci-dessous.)
 
@@ -218,7 +219,8 @@ en plus, pas un rouage.
   (~1 min de runner, 0 quota consommé) et ne relance les agents que si la journée
   n'est pas bouclée — la journée de quota épuisé à 04:30 est rattrapée sans double
   mémo. Si le quota mord quand même sur ton usage perso, baisse d'abord les
-  `--max-turns`, ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "30 4 */2 * *"`).
+  `--max-turns`, réduis les passes de récolte (retire un ou plusieurs crons `09/13/17`),
+  ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "30 4 */2 * *"`).
 - **Horaire** : crons en UTC. `30 4 * * *` = 06:30 Paris l'été, 05:30 l'hiver.
 - **`--dangerously-skip-permissions`** : requis pour tourner sans surveillance. Les
   agents n'ont ni secrets en clair dans le repo, ni droit de push (permissions
@@ -290,7 +292,8 @@ le Garde-fou restent modifiables uniquement par toi.
 Les GO du jour (4 jambes + URLs + rapport d'attaque du Contre-avocat + verdict office
 hours « BUILD / BUILD APRÈS TEST / FUIS »), le backlog classé où piocher ton prochain
 build, les autopsies, les sources découvertes. L'Instructeur instruit au plus **4
-dossiers** par jour (+1 slot réservé aux retours de vivier), qualité avant volume ; le
+dossiers** par jour — jusqu'à 6-7 quand le vivier est riche (+1 slot réservé aux retours
+de vivier), qualité avant volume ; le
 Rattrapage ne se déclenche que si aucun candidat n'a survécu dans une fenêtre de 3
 jours — un survivant récent suffit à éteindre la 2e vague (0 tour de quota gaspillé).
 Les rares jours à zéro GO malgré tout ça sont des **JOURS ROUGES** assumés : cause
