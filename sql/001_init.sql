@@ -67,16 +67,6 @@ create table if not exists verdicts (
   created_at timestamptz not null default now()
 );
 
--- RLS sur les nouvelles tables : les agents s'y connectent en direct (psql, rôle
--- postgres — non soumis au RLS), donc aucune policy n'est nécessaire. Sans ça, ces
--- tables du schéma public seraient lisibles et modifiables via PostgREST avec la
--- clé anon. Les tables préexistantes ont déjà RLS activé.
-alter table sources   enable row level security;
-alter table carte_naf enable row level security;
-alter table reserves  enable row level security;
-alter table doctrine  enable row level security;
-alter table verdicts  enable row level security;
-
 -- ------------------------------------------------------------
 -- 2. Évolutions des tables existantes
 -- ------------------------------------------------------------
@@ -89,7 +79,25 @@ alter table prospection_clones
   add column if not exists score_atelier jsonb;
 
 alter table veille_runs
-  add column if not exists agent text;
+  add column if not exists agent text,
+  add column if not exists metriques jsonb;
+
+-- Tableau de bord du Superviseur (et de la Lectrice) : santé de chaque agent sur 7 jours
+create or replace view sante_agents with (security_invoker = true) as
+select
+  agent,
+  max(date_run)                                              as dernier_run,
+  count(*) filter (where date_run >= current_date - 7)       as runs_7j,
+  coalesce(sum(candidats_inseres) filter (where date_run >= current_date - 7), 0) as candidats_7j,
+  coalesce(sum(dont_go) filter (where date_run >= current_date - 7), 0)           as go_7j,
+  count(*) filter (where date_run >= current_date - 7
+                   and metriques->>'budget_respecte' = 'false')                    as depassements_7j,
+  count(*) filter (where date_run >= current_date - 7
+                   and jsonb_typeof(metriques->'incidents') = 'array'
+                   and jsonb_array_length(metriques->'incidents') > 0)    as runs_avec_erreurs_7j
+from veille_runs
+where agent is not null
+group by agent;
 
 -- Index de dédup (similarité de nom + recherche plein-texte française sur le JTBD)
 create index if not exists idx_pc_nom_trgm
@@ -99,35 +107,53 @@ create index if not exists idx_pc_jtbd_fts
 create index if not exists idx_pc_pipeline on prospection_clones (statut_pipeline);
 
 -- ------------------------------------------------------------
--- 3. Backfill des 297 lignes existantes
+-- 3. Backfill des lignes historiques — ONE-SHOT (migrations_appliquees).
+--    Une base backfillée avant l'introduction du marqueur (la prod)
+--    est détectée par la présence d'états post-backfill : on pose
+--    alors le marqueur SANS retoucher les données vivantes.
 -- ------------------------------------------------------------
 
-update prospection_clones set statut_pipeline =
-  case verdict
-    when 'GO' then 'survivant'
-    when 'GO sous réserve' then 'survivant'
-    else 'ecarte'
-  end
-where statut_pipeline = 'lead' or statut_pipeline is null;
+do $$
+begin
+  if not exists (select 1 from migrations_appliquees where nom = '001-backfill') then
+    if not exists (select 1 from prospection_clones
+                   where statut_pipeline in ('survivant','ecarte','tue')) then
+      update prospection_clones set statut_pipeline =
+        case verdict
+          when 'GO' then 'survivant'
+          when 'GO sous réserve' then 'survivant'
+          else 'ecarte'
+        end
+      where statut_pipeline = 'lead' or statut_pipeline is null;
 
--- Les réserves des 10 « GO sous réserve » deviennent des questions testables
-insert into reserves (idee_id, question, protocole, statut)
-select id,
-       coalesce(risque_principal, 'Réserve non explicitée — relire la fiche'),
-       'À définir par l''Instructeur : vérifier par recherche sourcée ; si test réel requis (landing+ads), passer en attend_humain.',
-       'a_tester'
-from prospection_clones
-where verdict = 'GO sous réserve'
-  and not exists (select 1 from reserves r where r.idee_id = prospection_clones.id);
+      insert into reserves (idee_id, question, protocole, statut)
+      select id,
+             coalesce(risque_principal, 'Réserve non explicitée — relire la fiche'),
+             'À définir par l''Instructeur : vérifier par recherche sourcée ; si test réel requis (landing+ads), passer en attend_humain.',
+             'a_tester'
+      from prospection_clones
+      where verdict = 'GO sous réserve'
+        and not exists (select 1 from reserves r where r.idee_id = prospection_clones.id);
+    end if;
+    insert into migrations_appliquees (nom) values ('001-backfill');
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- 4. Seed doctrine (apprentissages PROUVÉS des runs d'août 2026)
 -- ------------------------------------------------------------
 
--- `on conflict do nothing` n'est effectif que s'il existe une contrainte d'unicité :
--- sans elle, ré-exécuter la migration dupliquerait toute la doctrine (lue à chaque run).
-delete from doctrine d using doctrine d2 where d.regle = d2.regle and d.id > d2.id;
-create unique index if not exists idx_doctrine_regle on doctrine (regle);
+-- Idempotence du seed : dédoublonnage puis arbitre d'unicité (md5, aligné 003)
+delete from doctrine a using doctrine b
+  where md5(a.regle) = md5(b.regle) and a.id > b.id;
+drop index if exists idx_doctrine_regle;      -- old btree-on-text index (prod)
+create unique index if not exists idx_doctrine_unique on doctrine (md5(regle));
+
+-- La règle PH/HN a été réécrite : rendre l'ancienne version obsolète
+update doctrine set statut = 'obsolete'
+  where statut = 'actif'
+    and regle like 'Product Hunt / Hacker News%'
+    and regle not like '%SAS DE NOUVEAUTÉ%';
 
 insert into doctrine (regle, origine) values
  ('Trou FR d''abord : vérifier concurrents FR / fonction native / substitut gratuit AVANT toute instruction de traction étrangère. ~37 % des écartés historiques meurent là.', 'analyse base 2026-08-20'),
@@ -140,7 +166,7 @@ insert into doctrine (regle, origine) values
  ('Shopify absorbe les fonctions de conformité d''affichage (ex. prix barré Omnibus devenu natif) : toute app de conformité affichage se vend en bundle, jamais en fonction unique.', 'run 2026-08-03 constat 4'),
  ('Catégories bannies (saturées/refutées, ne pas re-fouiller) : accessibilité Shopify (~120 apps) ; Omnibus prix 30j ; points relais ; passeport produit DPP (demande nulle constatée) ; collecte de documents clients FR (Doccollect, Superdocu, Wizidee, Clustdoc) ; extraction relevés bancaires (Parseur) ; résumé IA d''avis clients Shopify/Woo (≥5 acteurs) ; order printer/pick lists Shopify ; AI executive assistant généraliste ; lien-en-bio ; GEO/AI-visibility tracker (doublon id 196).', 'runs 2026-08-03→15'),
  ('Règle de proximité : candidat très proche d''une idée déjà écartée = écart. Doute = écart.', 'runs août 2026'),
- ('Product Hunt / Hacker News en flux généraliste = stérile pour du vertical clonable (documenté 4 runs sur 5). Admissible uniquement en pointant un produit précis depuis une autre source.', 'runs 2026-08-06→15'),
+ ('Product Hunt / Hacker News : jamais en gisement principal (flux généraliste ≈ 95 % de bruit, documenté 4 runs sur 5), mais toujours en SAS DE NOUVEAUTÉ plafonné à 5 min : scan titres seulement, filtre vertical/B2B, détection de convergences (2+ lancements même JTBD la même semaine = signal de douleur). 2 des 13 GO historiques en viennent.', 'runs août 2026 + correction 2026-08-20'),
  ('Le rendement vient des sources à PREUVE CHIFFRÉE LISIBLE : fiches d''app stores (avis, prix, langue, date), interviews à MRR publié, textes officiels.', 'run 2026-08-03 constat 1')
 on conflict do nothing;
 
@@ -161,8 +187,20 @@ insert into sources (url, nom, type_preuve, decouverte_via, statut, score, notes
  ('https://hunted.space', 'hunted.space (miroir PH)', 'lancements datés', 'seed (runs août)', 'active', 2, 'Uniquement pour dédup / pointer un produit précis.'),
  ('https://shopscan.app/shopify-apps/recently-launched', 'shopscan.app', 'nouveautés Shopify (agrégateur)', 'seed (runs août)', 'active', 2, 'FRAÎCHEUR PEU FIABLE (ré-indexations datées « il y a 7h »). Toujours croiser.'),
  ('https://acquire.com', 'Acquire.com (rachats micro-SaaS)', 'MRR et prix de vente publiés', 'seed (analyse)', 'candidate', null, 'WTP prouvée par les prix payés.'),
- ('https://microns.io', 'Microns (micro-acquisitions)', 'MRR/prix', 'seed (analyse)', 'candidate', null, null)
+ ('https://microns.io', 'Microns (micro-acquisitions)', 'MRR/prix', 'seed (analyse)', 'candidate', null, null),
+ ('https://community.shopify.com', 'Shopify Community (forums support)', 'plaintes et manques fonctionnels publics, horodatés', 'seed (2026-08-21)', 'candidate', null, 'Mine de douleur e-commerce. Prouve la douleur et le vocabulaire, jamais WTP/canal.'),
+ ('https://www.reddit.com', 'Reddit (subs métiers / SaaS / FR)', 'douleur, workarounds, vocabulaire métier', 'seed (2026-08-21)', 'candidate', null, 'Accès à TESTER depuis le runner (403 documenté côté Claude consumer en août) : direct → old.reddit.com → flux .rss/.json → Firecrawl. Mur persistant → enterrer avec raison, retester après 14 j.'),
+ ('https://raw.githubusercontent.com/sindresorhus/awesome/main/readme.md', 'Awesome (index des listes curées)', 'source de sources : annuaires d''outils par sujet', 'seed (2026-08-20)', 'candidate', null, 'Lisible en raw, zéro anti-bot. Prospecteur : chercher la liste awesome du vertical foré. Ne prouve jamais traction ni WTP — vague 0 uniquement.'),
+ ('https://github.com/awesome-selfhosted/awesome-selfhosted-data', 'awesome-selfhosted-data (YAML machine-readable)', 'catégories SaaS à demande prouvée + substituts open source', 'seed (2026-08-20)', 'candidate', null, 'Double usage. Contre-avocat : un open source auto-hébergeable couvrant le JTBD = attaque directe de la jambe WTP. Prospecteur : cartographie des catégories qui valent qu''on les self-host.')
 on conflict (url) do nothing;
+
+-- RLS : ces tables du schéma public seraient sinon lisibles/modifiables
+-- via PostgREST avec la clé anon (les agents passent par psql, non concernés).
+alter table sources        enable row level security;
+alter table carte_naf      enable row level security;
+alter table reserves       enable row level security;
+alter table doctrine       enable row level security;
+alter table verdicts       enable row level security;
 
 -- Fin. Vérifications rapides :
 --   select statut, count(*) from sources group by 1;
