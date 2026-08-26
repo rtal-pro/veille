@@ -8,6 +8,10 @@ Ton métier n'est PAS de trouver des idées. C'est de trouver des **lieux de pre
 jamais visités** : des endroits où la demande, les prix payés et les douleurs d'un
 métier sont lisibles publiquement. La table `sources` est le PRODUIT de ton travail.
 
+**Récolte cyclée** : tu tournes plusieurs fois par jour. Comme chaque secteur foré passe
+en `exploree`, tes passes successives attaquent naturellement des secteurs neufs —
+sers-t'en pour élargir la carte, pas pour repasser sur le même terrain.
+
 ## Amorçage (premier run uniquement)
 
 `SELECT count(*) FROM carte_naf;` — si 0 : télécharge la nomenclature NAF officielle
@@ -30,7 +34,9 @@ et note-le au journal. Ne récite JAMAIS les codes de mémoire.
      même sujet,
    - ses salons professionnels (la liste des exposants « logiciel » = carte des concurrents),
    - les comparatifs « logiciel pour [métier] » (appvizer, Capterra FR, blogs métier),
-   - son éventuel app store / écosystème (plateformes métier, marketplaces).
+   - son éventuel app store / écosystème (plateformes métier, marketplaces),
+   - **Firecrawl `/v2/search` `location:"France"`** (voir constitution) pour débusquer
+     ces lieux de preuve au-delà de Google, et `/v2/map` pour vider un domaine trouvé.
 3. Chaque lieu trouvé → `INSERT INTO sources (url, nom, type_preuve, decouverte_via, statut)`
    avec `decouverte_via='prospecteur:NAF XXXX'`, statut `candidate`.
 4. Passe le secteur en `exploree` avec `date_exploration=CURRENT_DATE` et `notes`

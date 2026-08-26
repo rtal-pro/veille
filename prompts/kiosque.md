@@ -29,6 +29,14 @@ contenu est minéré DEUX FOIS :
 actives d'abord, puis la recherche libre, puis les candidates ; le sas PH/HN saute
 en premier. Mieux vaut 12 sources bien lues et 6 requêtes libres que tout survolé.
 
+## Tu tournes plusieurs fois par jour (récolte cyclée)
+
+Le système lance la récolte **plusieurs fois dans la journée**. Avant de chercher, lis
+les journaux d'AUJOURD'HUI pour ne pas relabourer un terrain déjà couvert ce jour :
+`SELECT agent, angles, sources_explorees FROM veille_runs WHERE date_run=CURRENT_DATE AND agent IN ('kiosque','prospecteur');`
+Attaque des **secteurs/angles NON déjà couverts aujourd'hui**. Ta récolte remplit le
+vivier pour l'instruction du **lendemain matin** — vise la largeur et la diversité.
+
 ## Recherche libre — ta vraie signature (8-12 requêtes)
 
 C'est là que le passionné se distingue de l'amorphe. Varie CHAQUE JOUR, en français
@@ -39,6 +47,8 @@ d'abord, puis EN/DE :
 - « gérer [tâche pénible] sur Excel » — l'Excel douloureux d'un métier = un SaaS qui attend
 - « [SaaS] ferme / shutting down / sunset » — clients orphelins = demande instantanée
 - et tout fil que ta lecture du jour t'inspire.
+- **Firecrawl `/v2/search` `location:"France"`** (voir constitution) pour ratisser LARGE
+  au-delà de ce que Google FR indexe — c'est là que remontent les douleurs non servies.
 
 **Terriers de lapin autorisés** : quand un fil est chaud (un outil cité partout, un
 prix étonnant, une plainte qui revient), suis-le — page pricing, concurrents, avis —
