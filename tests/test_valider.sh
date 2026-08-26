@@ -55,6 +55,11 @@ caso fail touch-superviseur  "echo x >> prompts/superviseur.md"
 # regression instead of exposing it). A comment line changes nothing
 # executable, so this case is a true test of rule 2 specifically.
 caso fail touch-validator    "echo '# x' >> scripts/valider.sh"
+# gendarme.yml is constitutional (post-push enforcement, agents may never
+# touch it) — deliberately absent from rule 2's whitelist, same reasoning
+# as touch-validator above: a YAML comment append, not a bare token, so
+# this asserts rule 2 specifically rather than an incidental parse failure.
+caso fail touch-gendarme     "echo '# x' >> .github/workflows/gendarme.yml"
 caso fail new-workflow       "printf 'name: X\non: push\n' > .github/workflows/x.yml"
 caso fail rename-workflow    "sed -i 's/^name: Veille quotidienne/name: Veille 2/' $W"
 caso fail edit-trigger       "sed -i 's/^on:/on: # x/' $W"

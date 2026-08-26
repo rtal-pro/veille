@@ -3,10 +3,23 @@ name: Gendarme
 # Post-merge deterministic enforcement (no LLM): every push to main is
 # validated with the PRE-PUSH version of valider.sh; non-compliant pushes
 # are reverted automatically. Constitutional file.
+#
+# SUPERVISEUR_PAT est REQUIS pour que le gendarme puisse reverter une
+# modification de workflow (GITHUB_TOKEN est refusé au push de
+# .github/workflows/*.yml). Sans PAT, l'échec de push est signalé par le
+# step if: failure().
+#
+# L'exemption deploy:/Revert/keepalive est un contrôle par sujet de commit ;
+# un Superviseur compromis pourrait s'auto-titrer deploy: — risque résiduel
+# assumé (spec §6.2), backstop garde-fou.
 
 on:
   push:
     branches: [main]
+
+concurrency:
+  group: gendarme-main
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -40,6 +53,7 @@ jobs:
               echo "Push exempté : $MSG"; exit 0;;
           esac
           git show "$BEFORE:scripts/valider.sh" > /tmp/valider-main.sh
+          [ -s /tmp/valider-main.sh ] || { echo "::error::valider.sh introuvable sur $BEFORE"; exit 1; }
           if bash /tmp/valider-main.sh "$BEFORE" "$AFTER"; then
             echo "Push conforme."
           else
@@ -52,12 +66,14 @@ jobs:
           fi
       - name: Alerte issue
         if: ${{ steps.check.outputs.reverted == '1' }}
+        env:
+          BODY: ${{ steps.check.outputs.msg }}
         run: |
           gh issue create --repo "$GITHUB_REPOSITORY" \
             --title "🛑 Gendarme — push non conforme reverté" \
-            --body "${{ steps.check.outputs.msg }}"
+            --body "$BODY"
       - name: Alerte email
-        if: ${{ steps.check.outputs.reverted == '1' }}
+        if: ${{ always() && steps.check.outputs.reverted == '1' }}
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -69,3 +85,11 @@ jobs:
           to: ${{ secrets.GMAIL_USER }}
           subject: "🛑 Gendarme — push non conforme reverté"
           body: ${{ steps.check.outputs.msg }}
+      - name: Alerte échec d'enforcement
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Gendarme — enforcement en échec (push non validé)" \
+            --body "Le gendarme n'a pas pu valider/reverter le push $GITHUB_SHA (valider.sh absent sur la base ? merge commit ? conflit de revert ? push refusé ? SUPERVISEUR_PAT manquant ?). Le commit peut être non conforme et TOUJOURS sur main. Voir le run : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
