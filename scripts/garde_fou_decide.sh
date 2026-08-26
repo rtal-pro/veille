@@ -18,6 +18,12 @@ case "${1:?usage: qualifier <jobs.json> | decider <fails> <q1> <q2> <sha|-> <dej
     ;;
   decider)
     FAILS=$2; Q1=$3; Q2=$4; COMMIT=${5:-}; DEJA=${6:-0}
+    # Fail-safe: a revert gate must default to the SAFE action (noop) when the
+    # failure count is missing or not a non-negative integer — never fall
+    # through toward "revert". `[ "$FAILS" -lt 2 ]` on a non-numeric value
+    # errors without aborting under set -e (arithmetic test failures inside
+    # an if/elif condition don't trigger errexit), so guard explicitly first.
+    case "$FAILS" in ''|*[!0-9]*) echo noop; exit 0;; esac
     if [ "$FAILS" -lt 2 ];                          then echo noop
     elif [ "$Q1" = infra ] || [ "$Q2" = infra ];    then echo alerte_infra
     elif [ -z "$COMMIT" ] || [ "$COMMIT" = "-" ];   then echo alerte_sans_merge
