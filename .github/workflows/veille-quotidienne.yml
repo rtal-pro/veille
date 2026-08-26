@@ -2,8 +2,11 @@ name: Veille quotidienne
 
 on:
   schedule:
-    - cron: "30 4 * * *"    # main run — 04:30 UTC
-    - cron: "0 11 * * *"    # quota-recovery rerun; the porte job skips it when the day is done
+    - cron: "30 4 * * *"    # passe MÉMO — 04:30 UTC : récolte + jugement + email
+    - cron: "0 9 * * *"     # récolte seule — 09:00 UTC
+    - cron: "0 13 * * *"    # récolte seule — 13:00 UTC
+    - cron: "0 17 * * *"    # récolte seule — 17:00 UTC
+    - cron: "0 11 * * *"    # reprise mémo (filet quota) ; sautée si le jour est fait
   workflow_dispatch:
 
 permissions:
@@ -65,6 +68,7 @@ jobs:
     timeout-minutes: 3
     outputs:
       deja_fait: ${{ steps.check.outputs.deja_fait }}
+      memo: ${{ steps.check.outputs.memo }}
     env:
       # Job d'infra déterministe (pas un agent) : lit avec le rôle OWNER, qui
       # bypass RLS. Évite le fail-open silencieux si la policy agent_veille
@@ -72,7 +76,8 @@ jobs:
       # → deja_fait=0 → mémo dupliqué au run de reprise 11:00).
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
-      - name: Un verdict du jour existe-t-il déjà ?
+      - uses: actions/checkout@v4
+      - name: Verdict du jour ? Passe mémo ou récolte ?
         id: check
         run: |
           set -euo pipefail
@@ -81,10 +86,14 @@ jobs:
             "select count(*) from verdicts where date_run = current_date and type = 'quotidien'")
           if [ "$N" -ge 1 ]; then
             echo "deja_fait=1" >> "$GITHUB_OUTPUT"
-            echo "Mémo du jour déjà en base — run de reprise inutile, tout est sauté."
+            echo "Mémo du jour déjà en base."
           else
             echo "deja_fait=0" >> "$GITHUB_OUTPUT"
           fi
+          SCHED="$(jq -r '.schedule // empty' "$GITHUB_EVENT_PATH")"
+          MEMO="$(bash scripts/porte_memo.sh "$SCHED")"
+          echo "memo=$MEMO" >> "$GITHUB_OUTPUT"
+          echo "porte: deja_fait=$N schedule='$SCHED' memo=$MEMO"
 
   alerte-infra:
     needs: [preflight, migrations, porte]
@@ -102,7 +111,6 @@ jobs:
 
   kiosque:
     needs: [porte]
-    if: ${{ needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -115,7 +123,6 @@ jobs:
 
   prospecteur:
     needs: [porte]
-    if: ${{ needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -128,7 +135,7 @@ jobs:
 
   instructeur:
     needs: [kiosque, prospecteur, porte]
-    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -141,7 +148,7 @@ jobs:
 
   contre-avocat:
     needs: [instructeur, porte]
-    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -154,7 +161,7 @@ jobs:
 
   rattrapage:
     needs: [contre-avocat, porte]
-    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -184,7 +191,7 @@ jobs:
 
   atelier:
     needs: [preflight, porte, kiosque, prospecteur, instructeur, contre-avocat, rattrapage]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
