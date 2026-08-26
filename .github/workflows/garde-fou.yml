@@ -59,9 +59,11 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          # "2 échecs consécutifs" = les 2 derniers runs PLANIFIÉS, quel que soit le
-          # jour : un 04:30 ET un 11:00 tous deux en échec-agent le même jour comptent
-          # (deux traversées complètes du pipeline ont cassé — c'est voulu).
+          # "2 échecs consécutifs" = les 2 derniers runs PLANIFIÉS COMPLETS en
+          # échec-agent. Une PASSE DE RÉCOLTE (cron 09/13/17, jugement sauté) ou
+          # la reprise 11:00 quand le mémo existe déjà sont des runs PARTIELS : le
+          # qualifier les marque 'partiel' et le decider les exclut du revert (un
+          # échec kiosque/prospecteur là n'incrimine aucun commit côté jugement).
           # --status completed: exclude any still-in-progress run from the
           # "last 2" window (relevant once Task 10 adds an 11:00 cron) so
           # --limit 2 always resolves to the 2 most recently FINISHED
@@ -118,6 +120,8 @@ jobs:
             noop) echo "Premier échec isolé — on observe." ;;
             alerte_infra)
               echo "msg=2 échecs consécutifs à signature INFRASTRUCTURE (OIDC/quota/token/Gmail — jobs morts en <5 min ou email seul). Aucun revert : le code n'est pas en cause. Vérifier secrets/quota." >> "$GITHUB_OUTPUT" ;;
+            alerte_recolte)
+              echo "msg=2 échecs planifiés consécutifs dont au moins une PASSE DE RÉCOLTE (kiosque/prospecteur seuls, jugement sauté) : aucun revert — une récolte cassée n'incrimine pas un commit côté jugement. Vérifier kiosque/prospecteur / Firecrawl / quota." >> "$GITHUB_OUTPUT" ;;
             alerte_sans_merge)
               echo "msg=2 échecs consécutifs du pipeline, sans merge Superviseur récent (ou merge trop récent pour être la cause) : panne d'une autre origine. Aucune action automatique." >> "$GITHUB_OUTPUT" ;;
             alerte_deja_reverte)

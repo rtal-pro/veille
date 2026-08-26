@@ -9,12 +9,18 @@ d() { bash $S decider "$@"; }
 [ "$(q jobs_email_only.json)" = "infra" ]  || { echo "FAIL qualifier email-only"; exit 1; }
 [ "$(q jobs_boundary_300.json)" = "agent" ] || { echo "FAIL qualifier boundary 300s (>=300 -> agent)"; exit 1; }
 [ "$(q jobs_boundary_299.json)" = "infra" ] || { echo "FAIL qualifier boundary 299s (<300 -> infra)"; exit 1; }
+[ "$(q jobs_partiel_harvest.json)" = "partiel" ] || { echo "FAIL qualifier passe partielle (instructeur skipped -> partiel, jamais agent)"; exit 1; }
 [ "$(d 1 agent agent abc123 0)" = "noop" ]              || { echo "FAIL d1"; exit 1; }
 [ "$(d 2 infra infra abc123 0)" = "alerte_infra" ]      || { echo "FAIL d2"; exit 1; }
 [ "$(d 2 agent infra abc123 0)" = "alerte_infra" ]      || { echo "FAIL d3 (mixed=infra)"; exit 1; }
 [ "$(d 2 agent agent '' 0)"     = "alerte_sans_merge" ] || { echo "FAIL d4"; exit 1; }
 [ "$(d 2 agent agent abc123 1)" = "alerte_deja_reverte" ] || { echo "FAIL d5"; exit 1; }
 [ "$(d 2 agent agent abc123 0)" = "revert" ]            || { echo "FAIL d6"; exit 1; }
+# Passe partielle (récolte / reprise) dans le lot : jamais de revert, quelle que soit l'autre qualif
+[ "$(d 2 partiel agent abc123 0)"  = "alerte_recolte" ] || { echo "FAIL d-partiel-1 (partiel+agent -> alerte_recolte)"; exit 1; }
+[ "$(d 2 agent partiel abc123 0)"  = "alerte_recolte" ] || { echo "FAIL d-partiel-2 (agent+partiel -> alerte_recolte)"; exit 1; }
+[ "$(d 2 partiel partiel abc 0)"   = "alerte_recolte" ] || { echo "FAIL d-partiel-3 (2 partiels -> alerte_recolte)"; exit 1; }
+[ "$(d 2 partiel infra abc123 0)"  = "alerte_recolte" ] || { echo "FAIL d-partiel-4 (partiel prime sur infra -> pas de revert)"; exit 1; }
 # Regression: precedence pinning (missing-sha beats deja_reverte; infra beats everything)
 [ "$(d 2 agent agent '' 1)"    = "alerte_sans_merge" ]  || { echo "FAIL d7 (missing-sha beats deja_reverte)"; exit 1; }
 [ "$(d 2 agent agent - 1)"     = "alerte_sans_merge" ]  || { echo "FAIL d8 (sentinel '-' beats deja_reverte)"; exit 1; }
