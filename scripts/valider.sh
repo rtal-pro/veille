@@ -112,10 +112,26 @@ fi
 # modified `claude_args:` value may only contain --model/--max-turns/
 # --dangerously-skip-permissions tokens (no --mcp-config, --allowedTools,
 # --append-system-prompt, or anything else).
+# SECOND REVIEW ROUND FINDING (fixed here): yaml.safe_load is last-wins on
+# duplicate mapping keys. Injecting a SECOND top-level `jobs:` block BEFORE
+# the real one — containing an `evil` job that runs `curl ...$SECRET` —
+# parses to a tree IDENTICAL to base (safe_load just keeps the last `jobs:`,
+# discarding the injected one), so the walk above sees zero difference and
+# passes. If GitHub Actions' own parser is first-wins on duplicate keys
+# (undefined by the YAML spec; parsers differ), the INJECTED job is what
+# actually runs, with the real secrets in scope — completely invisible to a
+# last-wins comparison. Fixed with a strict loader that raises on any
+# duplicate mapping key, applied to BOTH sides. Also reject any YAML anchor
+# or alias (`&x`/`*x`) in HEAD outright via a token scan — not because
+# anchors are inherently unsafe here, but because this validator's own
+# tree-walk has no model for alias expansion or merge-key semantics, and a
+# validator that doesn't understand a construct must refuse it, not silently
+# under-check it. Any parse/duplicate/anchor error is fail-closed (ERREUR +
+# exit 1), exactly like the other error paths in this script.
 WORKFLOWS_IN_DIFF=$(echo "$FILES" | grep -E '^\.github/workflows/(veille-quotidienne|fossoyeur-hebdo)\.yml$' || true)
 if [ -n "$WORKFLOWS_IN_DIFF" ]; then
   python3 - "$BASE" "$HEADREF" $WORKFLOWS_IN_DIFF <<'PY'
-import sys, subprocess, shlex, yaml
+import sys, subprocess, shlex, re, yaml
 
 base, head = sys.argv[1], sys.argv[2]
 files = sys.argv[3:]
@@ -140,6 +156,51 @@ ALLOWED = [
     ('jobs', '*', 'steps', '*', 'with', 'prompt'),
 ]
 
+# A `${{ secrets.X }}` or `${{ secrets['X'] }}` reference on a prompt/name
+# value: rule 5 (elsewhere in this script) only ever greps for the literal
+# substring `secrets.` (dotted form) — the bracket form escapes it entirely,
+# and neither form is checked at all on a step's `name:` value, since name
+# was never in scope for rule 5's frozen-lines check. Catch both forms here,
+# directly on the two leaf paths where a secret could otherwise cross a job
+# boundary via free-form text.
+SECRETS_REF_RE = re.compile(r'secrets\s*[.\[]')
+
+class StrictLoader(yaml.SafeLoader):
+    """SafeLoader that raises on duplicate mapping keys instead of last-wins."""
+    pass
+
+def _no_duplicates_constructor(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping", node.start_mark,
+                f"found duplicate key: {key!r}", key_node.start_mark)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+StrictLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _no_duplicates_constructor
+)
+
+def _reject_anchors_and_aliases(content):
+    # Scanned on HEAD only (not BASE) — sufficient only under the invariant
+    # that BASE is itself anchor-free, checked directly today:
+    #   git show origin/main:.github/workflows/veille-quotidienne.yml | grep -nE '(^|[[:space:]])[&*][A-Za-z_]'
+    #   git show origin/main:.github/workflows/fossoyeur-hebdo.yml    | grep -nE '(^|[[:space:]])[&*][A-Za-z_]'
+    # (both empty). The invariant holds inductively: every merge that reaches
+    # main must have passed this HEAD scan, so main is anchor-free after
+    # every merge, and HEAD becomes the next merge's BASE. If it were ever
+    # violated (BASE anchored, HEAD un-anchors it by hand-expanding the
+    # alias), both sides parse to the same tree and the walk sees nothing —
+    # a no-op diff, not something an attacker could ride, but worth stating
+    # as a precondition rather than leaving the asymmetry unexplained.
+    for tok in yaml.scan(content):
+        if isinstance(tok, (yaml.AnchorToken, yaml.AliasToken)):
+            raise yaml.YAMLError("ancre ou alias YAML détecté (&.../*...) — interdit")
+
 def path_matches(path, pattern):
     return len(path) == len(pattern) and all(
         pat == '*' or pat == p for p, pat in zip(path, pattern)
@@ -151,11 +212,14 @@ def which_allowed(path):
             return pat
     return None
 
-def load(ref, path):
+def load(ref, path, is_head):
     r = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True, text=True)
     if r.returncode != 0:
-        return None
-    return yaml.safe_load(r.stdout)
+        raise LookupError(f"impossible de charger {path} depuis {ref}")
+    content = r.stdout
+    if is_head:
+        _reject_anchors_and_aliases(content)
+    return yaml.load(content, Loader=StrictLoader)
 
 def fmt(path):
     # Cosmetic only: render the YAML-1.1 bool-key back as 'on' for readable
@@ -174,6 +238,15 @@ def validate_claude_args(value):
         tok = tokens[i]
         if tok in with_value:
             if i + 1 >= n:
+                return False
+            val = tokens[i + 1]
+            # Validate the VALUE too, not just that a value-slot is filled —
+            # otherwise `--model --mcp-config=/tmp/x.json` lets --model
+            # "swallow" an arbitrary unrecognized flag as its own value,
+            # which the old i+=2 bookkeeping never inspected.
+            if tok == '--model' and not re.fullmatch(r'claude-[a-z0-9.-]+', val):
+                return False
+            if tok == '--max-turns' and not re.fullmatch(r'[0-9]+', val):
                 return False
             i += 2
         elif tok in bare:
@@ -206,16 +279,22 @@ def walk(a, b, path, filename):
             elif pat[-1] == 'prompt':
                 if '_constitution.md' not in str(b):
                     value_issues.append((filename, path, 'le prompt modifié ne référence plus _constitution.md'))
+                if SECRETS_REF_RE.search(str(b)):
+                    value_issues.append((filename, path, 'le prompt modifié référence secrets (forme pointée ou crochet)'))
+            elif pat[-1] == 'name':
+                if SECRETS_REF_RE.search(str(b)):
+                    value_issues.append((filename, path, 'le nom de step modifié référence secrets (forme pointée ou crochet)'))
             elif pat[-1] == 'claude_args':
                 if not validate_claude_args(b):
-                    value_issues.append((filename, path, f'flag non autorisé dans claude_args : {b!r}'))
+                    value_issues.append((filename, path, f'flag ou valeur non autorisé(e) dans claude_args : {b!r}'))
 
 exit_code = 0
 for f in files:
-    base_doc = load(base, f)
-    head_doc = load(head, f)
-    if base_doc is None or head_doc is None:
-        print(f"ERREUR : impossible de charger {f} depuis {base if base_doc is None else head}")
+    try:
+        base_doc = load(base, f, is_head=False)
+        head_doc = load(head, f, is_head=True)
+    except (yaml.YAMLError, LookupError) as e:
+        print(f"ERREUR : {f} : {e}")
         exit_code = 1
         continue
     walk(base_doc, head_doc, (), f)

