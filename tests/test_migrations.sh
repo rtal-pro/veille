@@ -30,18 +30,45 @@ create_agent_role() {
     "do \$\$ begin if not exists (select 1 from pg_roles where rolname = 'agent_veille') then create role agent_veille login password 't'; end if; end \$\$;"
 }
 
-# 006 must grant agent_veille just enough to work (SELECT/INSERT/UPDATE) and no
-# more (RLS policies exist, but no DELETE grant): verify both sides of that gate.
+# 006 must grant agent_veille just enough to work (SELECT/INSERT/UPDATE via a
+# real RLS policy — not merely a bare, RLS-shadowed privilege) and no more
+# (no DELETE grant): verify both sides of that gate.
 assert_agent_role() {
-  local label="$1"
-  docker exec $C psql "$AGENT_DB" -v ON_ERROR_STOP=1 -tAc "select count(*) from doctrine" >/dev/null \
-    || { echo "FAIL: agent_veille cannot SELECT doctrine ($label)"; exit 1; }
+  local label="$1" N NPOL
+  # (a) SELECT must prove the POLICY, not just the grant: a bare privilege
+  # with RLS default-deny still "succeeds" returning 0 rows, silently. Both
+  # scenarios seed doctrine rows (001's constitution seed), so N=0 here means
+  # the policy isn't effective even though the query raised no error.
+  N=$(docker exec $C psql "$AGENT_DB" -v ON_ERROR_STOP=1 -tAc "select count(*) from doctrine" 2>&1) \
+    || { echo "FAIL: agent_veille SELECT doctrine errored ($label): $N"; exit 1; }
+  [ "$N" -gt 0 ] 2>/dev/null \
+    || { echo "FAIL: agent_veille sees $N rows on doctrine via SELECT — RLS policy not effective ($label)"; exit 1; }
+  # (b) Policy coverage: exactly the 10 tables from 006 step 6 must carry it.
+  NPOL=$(docker exec $C psql "$DB" -tAc \
+    "select count(*) from pg_policies where schemaname='public' and policyname='agent_veille_all'")
+  [ "$NPOL" = "10" ] || { echo "FAIL: $NPOL agent_veille_all policies (want 10) ($label)"; exit 1; }
   docker exec $C psql "$AGENT_DB" -v ON_ERROR_STOP=1 -tAc \
     "insert into sources (url) values ('http://test-agent-$label')" >/dev/null \
     || { echo "FAIL: agent_veille cannot INSERT sources ($label)"; exit 1; }
   if docker exec $C psql "$AGENT_DB" -v ON_ERROR_STOP=1 -tAc "delete from doctrine" >/dev/null 2>&1; then
     echo "FAIL: agent_veille DELETE on doctrine should be denied ($label)"; exit 1
   fi
+}
+
+# 006 replaces moddatetime with an owned trigger function (set_updated_at):
+# prove it fires on UPDATE, not just that it parses. The 1s sleep guarantees
+# a detectable timestamp delta between the two separate psql invocations.
+assert_updated_at_trigger() {
+  local label="$1" before after
+  before=$(docker exec -i $C psql "$DB" -v ON_ERROR_STOP=1 -tAc \
+    "insert into reserves (idee_id, question) values (null, 'trigger-check-$label') returning updated_at")
+  sleep 1
+  docker exec -i $C psql "$DB" -v ON_ERROR_STOP=1 -q -c \
+    "update reserves set statut = 'levee' where question = 'trigger-check-$label'"
+  after=$(docker exec $C psql "$DB" -tAc \
+    "select updated_at from reserves where question = 'trigger-check-$label'")
+  [ "$before" != "$after" ] \
+    || { echo "FAIL: reserves.updated_at trigger did not fire (before=$before after=$after) ($label)"; exit 1; }
 }
 
 create_agent_role
@@ -55,6 +82,7 @@ N=$(docker exec $C psql "$DB" -tAc "select count(*) from doctrine d where exists
      (select 1 from doctrine d2 where d2.id<d.id and md5(d2.regle)=md5(d.regle))")
 [ "$N" = "0" ] || { echo "FAIL: $N duplicated doctrine rules"; exit 1; }
 assert_agent_role fresh
+assert_updated_at_trigger fresh
 
 # Prod-like scenario: DB that already ran the OLD 001 (commit 3f8b0de) with live data
 docker exec $C psql "$DB" -q -c "drop schema public cascade; create schema public;"
@@ -66,6 +94,12 @@ insert into prospection_clones (clone_nom, statut_pipeline, verdict)
 insert into prospection_clones (clone_nom, statut_pipeline, verdict, statut_jambes)
   values ('go-historique','survivant','GO','{"trou_fr":{"statut":"PROUVÉ"}}');
 SQL
+# Reproduce the real prod constraint (verdict text not null default 'GO') so
+# 006 step 3's drop-default / drop-not-null / purge ordering is actually
+# exercised under test, not just tolerated after the fact. Both seeded rows
+# already hold 'GO', so SET NOT NULL succeeds against live data.
+docker exec -i $C psql "$DB" -v ON_ERROR_STOP=1 -q -c \
+  "alter table prospection_clones alter column verdict set default 'GO'; alter table prospection_clones alter column verdict set not null;"
 create_agent_role
 run_all prod
 ST=$(docker exec $C psql "$DB" -tAc "select statut_pipeline||':'||coalesce(verdict,'NULL') from prospection_clones where clone_nom='lead-vivant'")

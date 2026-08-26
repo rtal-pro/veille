@@ -41,6 +41,20 @@ begin
   end if;
 end $$;
 
+-- 3bis. Backfill historique : étiqueter 'hebdo' les anciens digests du Fossoyeur.
+--    Discriminant : le Fossoyeur insère son digest hebdo sans go_du_jour, le
+--    dimanche. Edge case accepté : un mémo quotidien 0-GO tombé un dimanche
+--    serait mal étiqueté 'hebdo' par ce backfill — non atteignable en pratique
+--    (verdicts est vide en prod à ce jour, 2026-08-26 ; décision contrôleur).
+do $$
+begin
+  if not exists (select 1 from migrations_appliquees where nom = '006-backfill-type-hebdo') then
+    update verdicts set type = 'hebdo'
+      where go_du_jour is null and extract(isodow from date_run) = 7;
+    insert into migrations_appliquees (nom) values ('006-backfill-type-hebdo');
+  end if;
+end $$;
+
 -- 4. Lexique d'états verrouillé (valeurs prod vérifiées le 2026-08-26)
 do $$ begin
   alter table prospection_clones add constraint pc_statut_pipeline_chk
@@ -51,7 +65,9 @@ alter table prospection_clones validate constraint pc_statut_pipeline_chk;
 -- 5. reserves.updated_at maintenu automatiquement (fonction propriétaire,
 --    portable conteneur/Supabase — évite moddatetime, extension contrib
 --    dont le schéma d'installation diffère entre les deux environnements).
-create or replace function set_updated_at() returns trigger language plpgsql as $$
+create or replace function set_updated_at() returns trigger language plpgsql
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -62,7 +78,13 @@ create trigger reserves_updated_at before update on reserves
   for each row execute function set_updated_at();
 
 -- 6. Accès du rôle agent (créé hors repo, au déploiement) — gabarit pour
---    toute migration future : ajouter ici les nouvelles tables.
+--    toute migration future : une nouvelle table doit être ajoutée aux DEUX
+--    listes ci-dessous (le GRANT et le tableau de policies plus bas), sinon
+--    elle finit soit default-deny (policy manquante) soit permission-denied
+--    (grant manquant) pour agent_veille. Le GRANT sur les séquences est une
+--    photographie ponctuelle de l'existant, PAS un privilège par défaut :
+--    toute séquence créée par une migration ultérieure doit être re-grantée
+--    ici explicitement.
 do $$
 declare
   t text;
@@ -76,14 +98,21 @@ begin
       to agent_veille;
     grant select on v_sante_pipeline, sante_agents to agent_veille;
     grant usage, select on all sequences in schema public to agent_veille;
-    -- No DELETE, no TRUNCATE, no DDL: a prompt-injected agent cannot destroy memory.
+    -- No DELETE, no TRUNCATE, no DDL grant: a row cannot be deleted or a
+    -- table dropped/altered by this role. This does NOT prevent a
+    -- prompt-injected agent from corrupting data in place — UPDATE is
+    -- granted and the RLS policy below is permissive (using(true) with
+    -- check(true)), so existing columns can still be blanked or overwritten.
+    -- The guarantee here is narrower and deliberate: no row loss, no schema
+    -- change.
 
     -- RLS is enabled on every table above (000/001/002) with zero policies
     -- defined anywhere: without an explicit policy a non-owner role is
     -- default-denied regardless of the GRANTs above (0 rows on SELECT,
     -- rejected INSERT/UPDATE). Permissive policy restores read/write for
     -- agent_veille; DELETE stays blocked purely at the privilege layer
-    -- above (no DELETE grant), no policy carve-out needed for that.
+    -- above (no DELETE grant) — the policy itself would allow it, so never
+    -- add DELETE to the GRANT list above without revisiting this policy.
     foreach t in array array[
       'prospection_clones','veille_runs','analyses_go',
       'sources','carte_naf','reserves','doctrine','verdicts',
