@@ -1,0 +1,71 @@
+name: Gendarme
+
+# Post-merge deterministic enforcement (no LLM): every push to main is
+# validated with the PRE-PUSH version of valider.sh; non-compliant pushes
+# are reverted automatically. Constitutional file.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  GH_TOKEN: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+
+jobs:
+  valider-le-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+          fetch-depth: 0
+      - name: Valider ou reverter
+        id: check
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+          if echo "$BEFORE" | grep -qE '^0+$'; then
+            echo "Création de branche — rien à valider."; exit 0
+          fi
+          MSG=$(git log -1 --format=%s "$AFTER")
+          case "$MSG" in
+            deploy:*|Revert\ *|chore:\ keepalive*)
+              echo "Push exempté : $MSG"; exit 0;;
+          esac
+          git show "$BEFORE:scripts/valider.sh" > /tmp/valider-main.sh
+          if bash /tmp/valider-main.sh "$BEFORE" "$AFTER"; then
+            echo "Push conforme."
+          else
+            git config user.name "gendarme"
+            git config user.email "gendarme@users.noreply.github.com"
+            git revert --no-edit "$BEFORE..$AFTER"
+            git push origin main
+            echo "reverted=1" >> "$GITHUB_OUTPUT"
+            echo "msg=Push non conforme sur main ($AFTER, « $MSG ») : reverté automatiquement par le gendarme." >> "$GITHUB_OUTPUT"
+          fi
+      - name: Alerte issue
+        if: ${{ steps.check.outputs.reverted == '1' }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Gendarme — push non conforme reverté" \
+            --body "${{ steps.check.outputs.msg }}"
+      - name: Alerte email
+        if: ${{ steps.check.outputs.reverted == '1' }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Veille SaaS
+          to: ${{ secrets.GMAIL_USER }}
+          subject: "🛑 Gendarme — push non conforme reverté"
+          body: ${{ steps.check.outputs.msg }}
