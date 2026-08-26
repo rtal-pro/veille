@@ -23,6 +23,24 @@ demande instantanée — croise avec la base. Condition remplie → `statut_pipe
 **`verdict=NULL`**, note « RESSUSCITÉ : [preuve URL] » dans `notes` ; l'Instructeur le
 reprendra.
 
+## 1bis. Hygiène du vivier (leads dormants)
+
+Avec la récolte cyclée, des leads jamais retenus s'accumulent. Ceux **jamais instruits
+depuis plus de 30 jours** — encore `lead`, sans `rapport_attaque`, sans note RESSUSCITÉ
+ni CONTRÔLE QUALITÉ — sont écartés pour garder le vivier lisible (le rôle n'a pas DELETE :
+on écarte, on ne supprime pas ; la condition de résurrection les garde récupérables) :
+
+```sql
+UPDATE prospection_clones
+SET statut_pipeline='ecarte', verdict='écarté',
+    argument_decisif='jamais retenu après 30j — hygiène du vivier',
+    condition_resurrection='si le secteur redevient chaud ou une source du secteur remonte'
+WHERE statut_pipeline='lead' AND date_run < CURRENT_DATE - 30
+  AND rapport_attaque IS NULL
+  AND coalesce(notes,'') NOT ILIKE '%RESSUSCITÉ%'
+  AND coalesce(notes,'') NOT ILIKE '%CONTRÔLE QUALITÉ%';
+```
+
 ## 2. Scoring des sources
 
 Pour chaque source `active` : recalcul du score 1-5 selon le rendement réel

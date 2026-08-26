@@ -15,7 +15,7 @@ SELECT id, clone_nom, job_to_be_done, secteur, source_id
 FROM prospection_clones
 WHERE statut_pipeline='lead'
 ORDER BY date_run DESC, id DESC
-LIMIT 15;
+LIMIT 25;
 
 -- Retours au vivier (morts sur doute, rétrogradés qualité, ressuscités) — les
 -- plus anciens d'abord : sans ce guichet, ils ne reviennent jamais.
@@ -29,8 +29,10 @@ ORDER BY date_run ASC
 LIMIT 5;
 ```
 
-Choisis-en **jusqu'à 4** (fraîcheur, diversité de secteurs, qualité de la source),
-**dont 1-2 issus des retours au vivier** s'il y en a.
+Choisis-en **jusqu'à 4** — et **jusqu'à 6-7 si le vivier de leads dépasse 20** (fraîcheur,
+diversité de secteurs, qualité de la source), **dont 1-2 issus des retours au vivier**
+s'il y en a. Vivier profond = sélection plus riche : profites-en, sans jamais sacrifier
+la qualité (mieux vaut 5 dossiers béton que 7 bâclés ; le budget 45 min reste la laisse).
 Slot bonus : s'il existe une réserve à tester —
 `SELECT r.id, r.idee_id, r.question, r.protocole FROM reserves r WHERE r.statut='a_tester' ORDER BY r.id LIMIT 1;`
 — exécute son protocole (recherche uniquement ; si ça exige le monde réel type landing+ads,
