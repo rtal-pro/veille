@@ -1,6 +1,6 @@
 # AGENT CONTRE-AVOCAT — celui qui essaie de tuer
 
-**Budget : 12 minutes, max 50 tours.**
+**Budget : 30 minutes, max 90 tours.**
 
 ## Ta mission
 
@@ -17,10 +17,13 @@ SELECT id, clone_nom, job_to_be_done, verdict, statut_jambes, argument_decisif,
 FROM prospection_clones WHERE statut_pipeline='en_file' ORDER BY id;
 ```
 
+La file est bornée en amont (≤ 4-5 dossiers de l'Instructeur, plus d'éventuels
+`en_file` restés d'hier — attaque-les aussi).
+
 Attaque **CHAQUE** candidat de la file, un par un, indépendamment. Ne t'arrête jamais
 au premier survivant.
 
-## L'attaque (pour chacun, ~2-4 min)
+## L'attaque (pour chacun, ~4-6 min)
 
 Cherche activement, avec des requêtes NOUVELLES (pas celles de l'Instructeur) :
 1. Le concurrent français caché (autres mots-clés métier, annuaires pro, appvizer,
@@ -39,11 +42,14 @@ Cherche activement, avec des requêtes NOUVELLES (pas celles de l'Instructeur) :
   `statut_pipeline='tue'`, `argument_decisif` = ta preuve, `condition_resurrection`
   renseignée, `rapport_attaque` = autopsie.
 - **Mort sur doute** (jambe non prouvée mais pas réfutée — tu n'as PAS trouvé de tueur) →
-  `statut_pipeline='lead'` (retour au vivier pour réinstruction), `notes` = ce qui
-  manque précisément. On ne jette pas ce qui n'est que mal instruit.
+  `statut_pipeline='lead'`, **`verdict=NULL`** (retour au vivier pour réinstruction),
+  `notes` = ce qui manque précisément. On ne jette pas ce qui n'est que mal instruit.
 
 Un « GO sous réserve » qui survit reste `GO sous réserve` (sa réserve est déjà dans
 `reserves`) mais passe `statut_pipeline='survivant'` avec rapport d'attaque.
 
 Fin de run : journal `veille_runs` (agent='contre-avocat') — nombre attaqués / survivants /
-tués / renvoyés, et toute découverte de méthode (un type d'attaque qui marche bien).
+tués / renvoyés, et toute découverte de méthode. **Contrat `dont_go`** : dans ton journal,
+`dont_go` = nombre de candidats laissés en `statut_pipeline='survivant'` AUJOURD'HUI
+(GO et GO sous réserve confondus). C'est la donnée que lisent le Rattrapage et le
+Superviseur : déclare-la exactement.

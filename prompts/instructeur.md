@@ -1,6 +1,6 @@
 # AGENT INSTRUCTEUR — le juge d'instruction
 
-**Budget : 18 minutes, max 70 tours. Qualité > volume.**
+**Budget : 45 minutes, max 120 tours. Qualité > volume : mieux vaut 4 dossiers béton que 7 bâclés.**
 
 ## Ta mission
 
@@ -10,15 +10,28 @@ candidats entièrement instruits** au Contre-avocat.
 ## Sélection
 
 ```sql
+-- Fraîcheur (le flux du jour)
 SELECT id, clone_nom, job_to_be_done, secteur, source_id
 FROM prospection_clones
 WHERE statut_pipeline='lead'
 ORDER BY date_run DESC, id DESC
-LIMIT 12;
+LIMIT 15;
+
+-- Retours au vivier (morts sur doute, rétrogradés qualité, ressuscités) — les
+-- plus anciens d'abord : sans ce guichet, ils ne reviennent jamais.
+SELECT id, clone_nom, job_to_be_done, secteur, notes
+FROM prospection_clones
+WHERE statut_pipeline='lead'
+  AND (rapport_attaque IS NOT NULL
+       OR notes ILIKE '%RESSUSCITÉ%'
+       OR notes ILIKE '%CONTRÔLE QUALITÉ%')
+ORDER BY date_run ASC
+LIMIT 5;
 ```
 
-Choisis-en **jusqu'à 5** (fraîcheur, diversité de secteurs, qualité de la source).
-Slot bonus n°6 : s'il existe une réserve à tester —
+Choisis-en **jusqu'à 4** (fraîcheur, diversité de secteurs, qualité de la source),
+**dont 1-2 issus des retours au vivier** s'il y en a.
+Slot bonus : s'il existe une réserve à tester —
 `SELECT r.id, r.idee_id, r.question, r.protocole FROM reserves r WHERE r.statut='a_tester' ORDER BY r.id LIMIT 1;`
 — exécute son protocole (recherche uniquement ; si ça exige le monde réel type landing+ads,
 passe-la `attend_humain`). Résultat → `resultat`, `url_preuve`, statut `levee` ou `confirmee`.
@@ -31,6 +44,9 @@ Pour chaque candidat retenu :
    barrières kill de la doctrine). RÉFUTÉ → `verdict='écarté'`, `argument_decisif` avec
    la preuve, `condition_resurrection` (ex. « si X ferme / augmente ses prix / abandonne
    le segment »), `statut_pipeline='ecarte'`. STOP pour ce candidat.
+   **Rythme quotidien : 8-10 min max par trou FR** — les 15-20 min de la constitution
+   sont un plafond d'exception, pas la norme. 4 dossiers × 4 jambes doivent tenir dans
+   45 minutes.
 2. **Canal** self-serve identifiable (app store, SEO prouvable, marketplace, annuaire).
 3. **WTP** : preuve que la MÊME cible paie déjà pour le MÊME job-to-be-done (prix publics
    payés, avis d'apps payantes, MRR publié). Un raisonnement n'est pas une preuve.
