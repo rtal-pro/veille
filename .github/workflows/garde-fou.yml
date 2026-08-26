@@ -27,6 +27,10 @@ on:
     - cron: "30 9 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: garde-fou
+  cancel-in-progress: false
+
 permissions:
   contents: write
   issues: write
@@ -44,6 +48,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+          # `workflow_run` can leave actions/checkout on a detached HEAD
+          # (github.ref/sha here point at the triggering run, not
+          # necessarily a branch ref) — pin main explicitly so the later
+          # `git push origin main` always targets a real, checked-out branch
+          # instead of silently pushing nothing / failing.
+          ref: main
           fetch-depth: 0
       - name: Qualifier puis décider
         id: check
@@ -52,22 +62,54 @@ jobs:
           # "2 échecs consécutifs" = les 2 derniers runs PLANIFIÉS, quel que soit le
           # jour : un 04:30 ET un 11:00 tous deux en échec-agent le même jour comptent
           # (deux traversées complètes du pipeline ont cassé — c'est voulu).
+          # --status completed: exclude any still-in-progress run from the
+          # "last 2" window (relevant once Task 10 adds an 11:00 cron) so
+          # --limit 2 always resolves to the 2 most recently FINISHED
+          # scheduled runs, never an in-flight one whose conclusion is null.
           mapfile -t RUNS < <(gh run list --workflow "Veille quotidienne" \
-            --event schedule --limit 2 --json databaseId,conclusion \
-            -q '.[] | "\(.databaseId) \(.conclusion)"')
-          FAILS=0; QUALS=()
+            --event schedule --status completed --limit 2 \
+            --json databaseId,conclusion,createdAt \
+            -q '.[] | "\(.databaseId) \(.conclusion) \(.createdAt)"')
+          FAILS=0; QUALS=(); OLDEST_FAIL_CREATED=""
           for r in "${RUNS[@]}"; do
-            ID=${r%% *}; CONC=${r##* }
+            read -r ID CONC CREATED <<< "$r"
             if [ "$CONC" = "failure" ]; then
               FAILS=$((FAILS+1))
               gh run view "$ID" --json jobs > "/tmp/jobs_$ID.json"
               QUALS+=("$(bash scripts/garde_fou_decide.sh qualifier "/tmp/jobs_$ID.json")")
+              # RUNS is newest-first (gh run list's default order), so the
+              # LAST failing run processed by this loop is the OLDEST of the
+              # (up to 2) counted failures — overwritten on purpose each time.
+              OLDEST_FAIL_CREATED="$CREATED"
             fi
           done
-          C=$(git log --grep='^superviseur:' --since='8 days ago' -1 --format=%H || true)
+          # Anchor to the commit SUBJECT only (not the full message body):
+          # `git log --grep` searches the whole message, so a commit whose
+          # BODY happens to start a line with "superviseur:" would false-match.
+          C=$(git log --since='8 days ago' --format='%H %s' \
+              | awk '$2 ~ /^superviseur:/ {print $1; exit}' || true)
           DEJA=0
           if [ -n "$C" ] && git log --since='9 days ago' --grep="This reverts commit $C" --format=%H | grep -q .; then
             DEJA=1
+          fi
+          # Temporal causality gate: a superviseur merge can only be blamed
+          # for failures that happened strictly AFTER it landed. If $C's
+          # committer date is later than the OLDEST of the counted failures,
+          # the merge hadn't landed yet when that failure occurred and
+          # cannot be its cause — drop it to the decider's "no recent merge"
+          # sentinel so a healthy commit is never reverted for a
+          # pre-existing/unrelated outage (e.g. two days of infra failure
+          # bracketing an unrelated, sane merge).
+          if [ -n "$C" ] && [ -n "$OLDEST_FAIL_CREATED" ]; then
+            # Normalize the commit's committer date to the same UTC "...Z"
+            # shape gh's createdAt uses: git's %cI keeps the committer's
+            # local offset (e.g. "+00:00" on a UTC runner, not textually
+            # "Z"), so a raw lexicographic compare against createdAt would
+            # not reliably be comparing like-for-like.
+            C_DATE=$(date -u -d "$(git show -s --format=%cI "$C")" +%FT%TZ)
+            if [[ "$C_DATE" > "$OLDEST_FAIL_CREATED" ]]; then
+              C="-"
+            fi
           fi
           VERDICT=$(bash scripts/garde_fou_decide.sh decider \
             "$FAILS" "${QUALS[0]:-agent}" "${QUALS[1]:-agent}" "${C:--}" "$DEJA")
@@ -77,7 +119,7 @@ jobs:
             alerte_infra)
               echo "msg=2 échecs consécutifs à signature INFRASTRUCTURE (OIDC/quota/token/Gmail — jobs morts en <5 min ou email seul). Aucun revert : le code n'est pas en cause. Vérifier secrets/quota." >> "$GITHUB_OUTPUT" ;;
             alerte_sans_merge)
-              echo "msg=2 échecs consécutifs du pipeline, sans merge Superviseur récent : panne d'une autre origine. Aucune action automatique." >> "$GITHUB_OUTPUT" ;;
+              echo "msg=2 échecs consécutifs du pipeline, sans merge Superviseur récent (ou merge trop récent pour être la cause) : panne d'une autre origine. Aucune action automatique." >> "$GITHUB_OUTPUT" ;;
             alerte_deja_reverte)
               echo "msg=2 échecs consécutifs, mais le commit Superviseur $C est déjà reverté : la panne vient d'ailleurs. Vérifier secrets/quota/Supabase." >> "$GITHUB_OUTPUT" ;;
             revert)
@@ -92,10 +134,11 @@ jobs:
           esac
       - name: Alerte issue
         if: ${{ steps.check.outputs.verdict != 'noop' && steps.check.outputs.verdict != '' }}
+        env:
+          TITLE: "🛑 Garde-fou — ${{ steps.check.outputs.verdict }}"
+          BODY: ${{ steps.check.outputs.msg }}
         run: |
-          gh issue create --repo "$GITHUB_REPOSITORY" \
-            --title "🛑 Garde-fou — ${{ steps.check.outputs.verdict }}" \
-            --body "${{ steps.check.outputs.msg }}"
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
       - name: Alerte email
         if: ${{ steps.check.outputs.verdict != 'noop' && steps.check.outputs.verdict != '' }}
         uses: dawidd6/action-send-mail@v3
@@ -109,6 +152,14 @@ jobs:
           to: ${{ secrets.GMAIL_USER }}
           subject: "🛑 Garde-fou — intervention automatique"
           body: ${{ steps.check.outputs.msg }}
+      - name: Alerte échec du job
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Garde-fou — revert-si-casse en échec, panne non traitée, voir le run" \
+            --body "Le job revert-si-casse a échoué avant de pouvoir qualifier/décider/alerter normalement (script en erreur, gh indisponible, push refusé...). Voir le run : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   vigie:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
@@ -125,8 +176,8 @@ jobs:
           set -euo pipefail
           N=$(gh run list --workflow "Veille quotidienne" \
               --created ">$(date -u -d '-26 hours' +%FT%TZ)" \
-              --json databaseId -q 'length')
-          if [ "$N" -eq 0 ]; then
+              --json databaseId -q 'length' || echo 0)
+          if [ "${N:-0}" -eq 0 ]; then
             echo "silence=1" >> "$GITHUB_OUTPUT"
             gh issue create --repo "$GITHUB_REPOSITORY" \
               --title "🛑 Vigie — le pipeline n'est pas parti depuis 26 h" \
@@ -152,3 +203,11 @@ jobs:
           to: ${{ secrets.GMAIL_USER }}
           subject: "🛑 Vigie — pipeline silencieux"
           body: "Aucun run de « Veille quotidienne » depuis 26 h. Voir l'issue GitHub créée."
+      - name: Alerte échec du job
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Garde-fou — vigie en échec, panne non traitée, voir le run" \
+            --body "Le job vigie a échoué avant de pouvoir vérifier le dead-man switch / keepalive (gh indisponible, push refusé...). Voir le run : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
