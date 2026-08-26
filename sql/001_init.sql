@@ -1,7 +1,7 @@
 -- ============================================================
 -- Migration 001 — Système de veille v1 (GitHub Actions)
--- À exécuter UNE FOIS dans l'éditeur SQL Supabase (ou psql).
--- Idempotente : ré-exécutable sans casse.
+-- Exécutée via setup.yml / le job migrations, après 000_legacy.sql.
+-- Idempotente : rejouable sans casse (dépend de migrations_appliquees, posée par 000).
 -- ============================================================
 
 -- Extensions (dédup gratuite : trigrammes + FTS français ; pas d'embeddings payants)
@@ -117,7 +117,7 @@ do $$
 begin
   if not exists (select 1 from migrations_appliquees where nom = '001-backfill') then
     if not exists (select 1 from prospection_clones
-                   where statut_pipeline in ('survivant','ecarte','tue')) then
+                   where statut_pipeline in ('survivant','ecarte','tue','en_file')) then
       update prospection_clones set statut_pipeline =
         case verdict
           when 'GO' then 'survivant'
@@ -150,10 +150,11 @@ drop index if exists idx_doctrine_regle;      -- old btree-on-text index (prod)
 create unique index if not exists idx_doctrine_unique on doctrine (md5(regle));
 
 -- La règle PH/HN a été réécrite : rendre l'ancienne version obsolète
+-- (ancrage exact md5 sur le texte de 3f8b0de, PAS un préfixe LIKE qui
+--  basculerait aussi toute future règle commençant pareil)
 update doctrine set statut = 'obsolete'
   where statut = 'actif'
-    and regle like 'Product Hunt / Hacker News%'
-    and regle not like '%SAS DE NOUVEAUTÉ%';
+    and md5(regle) = md5('Product Hunt / Hacker News en flux généraliste = stérile pour du vertical clonable (documenté 4 runs sur 5). Admissible uniquement en pointant un produit précis depuis une autre source.');
 
 insert into doctrine (regle, origine) values
  ('Trou FR d''abord : vérifier concurrents FR / fonction native / substitut gratuit AVANT toute instruction de traction étrangère. ~37 % des écartés historiques meurent là.', 'analyse base 2026-08-20'),
