@@ -7,19 +7,21 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  issues: write
 
 concurrency:
   group: veille
   cancel-in-progress: false
 
 env:
-  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_AGENT }}
   FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
 
 jobs:
   fossoyeur:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1
@@ -27,7 +29,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent FOSSOYEUR-RESSUSCTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/fossoyeur.md, et exécute intégralement ta mission hebdomadaire."
-          claude_args: "--model claude-sonnet-4-6 --max-turns 60 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 90 --dangerously-skip-permissions"
       - name: Préparer le digest
         id: memo
         if: ${{ always() }}
@@ -35,7 +37,8 @@ jobs:
           if [ ! -s /tmp/memo.md ]; then
             echo "⚠️ Digest introuvable : l'agent Fossoyeur n'a pas produit /tmp/memo.md. Voir les logs du run." > /tmp/memo.md
           fi
-          { echo 'MEMO<<MEMO_EOF'; cat /tmp/memo.md; echo; echo 'MEMO_EOF'; } >> "$GITHUB_OUTPUT"
+          D="MEMO_$(head -c8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          { echo "MEMO<<$D"; cat /tmp/memo.md; echo; echo "$D"; } >> "$GITHUB_OUTPUT"
       - name: Envoyer le digest par email
         if: ${{ always() }}
         uses: dawidd6/action-send-mail@v3
@@ -50,3 +53,11 @@ jobs:
           subject: "🪦 Veille SaaS — digest hebdo"
           convert_markdown: true
           html_body: ${{ steps.memo.outputs.MEMO }}
+      - name: Alerte issue si le digest n'est pas parti
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Digest hebdo non livré" \
+            --body "Le job fossoyeur a échoué (agent ou envoi email). Le digest hebdo n'est pas arrivé par email. Voir le run : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

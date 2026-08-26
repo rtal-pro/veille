@@ -1,0 +1,74 @@
+name: Superviseur hebdo
+
+on:
+  schedule:
+    - cron: "0 13 * * 6"    # samedi 13:00 UTC, fenêtre de quota fraîche
+  workflow_dispatch:
+
+# contents+PR : nécessaires pour brancher et ouvrir la Pull Request d'amélioration
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+env:
+  # Le Superviseur ouvre les preuve_url des audits (pages web arbitraires) —
+  # même exposition qu'un agent de veille classique. Le rôle agent_veille a
+  # tout ce qu'il faut (SELECT/INSERT/UPDATE sur audits/modifications, cf. 006).
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_AGENT }}
+  # PAT fine-grained (contents+workflows) recommandé : sans lui, les PR qui modifient
+  # les fichiers .github/workflows/*.yml seront refusées au push (limite du GITHUB_TOKEN).
+  GH_TOKEN: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+
+jobs:
+  superviseur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "Tu es l'agent SUPERVISEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/superviseur.md, et exécute intégralement ta mission hebdomadaire d'audit et d'auto-correction."
+          claude_args: "--model claude-sonnet-5 --max-turns 100 --dangerously-skip-permissions"
+      - name: Préparer l'audit
+        id: memo
+        if: ${{ always() }}
+        run: |
+          if [ ! -s /tmp/memo.md ]; then
+            echo "⚠️ Audit introuvable : l'agent Superviseur n'a pas produit /tmp/memo.md. Voir les logs du run." > /tmp/memo.md
+          fi
+          D="MEMO_$(head -c8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          { echo "MEMO<<$D"; cat /tmp/memo.md; echo; echo "$D"; } >> "$GITHUB_OUTPUT"
+      - name: Envoyer l'audit par email
+        if: ${{ always() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Veille SaaS
+          to: ${{ secrets.GMAIL_USER }}
+          subject: "🔬 Veille SaaS — audit hebdo du Superviseur"
+          convert_markdown: true
+          html_body: ${{ steps.memo.outputs.MEMO }}
+      - name: Alerte issue si l'audit n'est pas parti
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Audit hebdo non livré" \
+            --body "Le job superviseur a échoué (agent ou envoi email). L'audit hebdo n'est pas arrivé par email. Voir le run : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
