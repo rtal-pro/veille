@@ -1,0 +1,154 @@
+name: Garde-fou
+
+# Deterministic watchdog (no LLM). Two jobs:
+#  - revert-si-casse: on daily pipeline failure, qualify the cause before any
+#    revert (infra signatures never blame a superviseur commit).
+#  - vigie: daily dead-man's switch (did the pipeline START today?) + keepalive
+#    commit to defeat GitHub's 60-day scheduled-workflow auto-disable.
+#
+# KNOWN GAPS (carried from Task 8's review, not closed here — see
+# scripts/garde_fou_decide.sh):
+#  (a) `gh run list --json conclusion` and the qualifier's
+#      `select(.conclusion=="failure")` only ever match conclusion "failure".
+#      A step killed by its own `timeout-minutes` (kiosque/instructeur run up
+#      to 50 min) can report as "cancelled" or "timed_out" instead — such a
+#      genuinely hung agent run would NOT be counted as a failure here at all,
+#      so 2 consecutive timeouts produce no alert and no revert.
+#  (b) The qualifier's >=5min heuristic means a FAST real crash (e.g. a
+#      broken prompt that errors out immediately) is classified "infra" (no
+#      revert), same as a genuine infra outage. This under-catches fast
+#      code-caused breakage in favor of never blaming a good commit.
+
+on:
+  workflow_run:
+    workflows: ["Veille quotidienne"]
+    types: [completed]
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+env:
+  GH_TOKEN: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+
+jobs:
+  revert-si-casse:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+          fetch-depth: 0
+      - name: Qualifier puis décider
+        id: check
+        run: |
+          set -euo pipefail
+          # "2 échecs consécutifs" = les 2 derniers runs PLANIFIÉS, quel que soit le
+          # jour : un 04:30 ET un 11:00 tous deux en échec-agent le même jour comptent
+          # (deux traversées complètes du pipeline ont cassé — c'est voulu).
+          mapfile -t RUNS < <(gh run list --workflow "Veille quotidienne" \
+            --event schedule --limit 2 --json databaseId,conclusion \
+            -q '.[] | "\(.databaseId) \(.conclusion)"')
+          FAILS=0; QUALS=()
+          for r in "${RUNS[@]}"; do
+            ID=${r%% *}; CONC=${r##* }
+            if [ "$CONC" = "failure" ]; then
+              FAILS=$((FAILS+1))
+              gh run view "$ID" --json jobs > "/tmp/jobs_$ID.json"
+              QUALS+=("$(bash scripts/garde_fou_decide.sh qualifier "/tmp/jobs_$ID.json")")
+            fi
+          done
+          C=$(git log --grep='^superviseur:' --since='8 days ago' -1 --format=%H || true)
+          DEJA=0
+          if [ -n "$C" ] && git log --since='9 days ago' --grep="This reverts commit $C" --format=%H | grep -q .; then
+            DEJA=1
+          fi
+          VERDICT=$(bash scripts/garde_fou_decide.sh decider \
+            "$FAILS" "${QUALS[0]:-agent}" "${QUALS[1]:-agent}" "${C:--}" "$DEJA")
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          case "$VERDICT" in
+            noop) echo "Premier échec isolé — on observe." ;;
+            alerte_infra)
+              echo "msg=2 échecs consécutifs à signature INFRASTRUCTURE (OIDC/quota/token/Gmail — jobs morts en <5 min ou email seul). Aucun revert : le code n'est pas en cause. Vérifier secrets/quota." >> "$GITHUB_OUTPUT" ;;
+            alerte_sans_merge)
+              echo "msg=2 échecs consécutifs du pipeline, sans merge Superviseur récent : panne d'une autre origine. Aucune action automatique." >> "$GITHUB_OUTPUT" ;;
+            alerte_deja_reverte)
+              echo "msg=2 échecs consécutifs, mais le commit Superviseur $C est déjà reverté : la panne vient d'ailleurs. Vérifier secrets/quota/Supabase." >> "$GITHUB_OUTPUT" ;;
+            revert)
+              git config user.name "garde-fou"
+              git config user.email "garde-fou@users.noreply.github.com"
+              if git revert --no-edit "$C" && git push origin main; then
+                echo "msg=2 échecs consécutifs d'exécution après le merge Superviseur $C : commit REVERTÉ automatiquement." >> "$GITHUB_OUTPUT"
+              else
+                git revert --abort || true
+                echo "msg=Revert automatique de $C en conflit — intervention manuelle requise (git revert $C)." >> "$GITHUB_OUTPUT"
+              fi ;;
+          esac
+      - name: Alerte issue
+        if: ${{ steps.check.outputs.verdict != 'noop' && steps.check.outputs.verdict != '' }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Garde-fou — ${{ steps.check.outputs.verdict }}" \
+            --body "${{ steps.check.outputs.msg }}"
+      - name: Alerte email
+        if: ${{ steps.check.outputs.verdict != 'noop' && steps.check.outputs.verdict != '' }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Veille SaaS
+          to: ${{ secrets.GMAIL_USER }}
+          subject: "🛑 Garde-fou — intervention automatique"
+          body: ${{ steps.check.outputs.msg }}
+
+  vigie:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUPERVISEUR_PAT || github.token }}
+          fetch-depth: 0
+      - name: Dead-man's switch + keepalive
+        id: vigie
+        run: |
+          set -euo pipefail
+          N=$(gh run list --workflow "Veille quotidienne" \
+              --created ">$(date -u -d '-26 hours' +%FT%TZ)" \
+              --json databaseId -q 'length')
+          if [ "$N" -eq 0 ]; then
+            echo "silence=1" >> "$GITHUB_OUTPUT"
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "🛑 Vigie — le pipeline n'est pas parti depuis 26 h" \
+              --body "Aucun run de « Veille quotidienne » créé depuis 26 h : cron cassé, workflows désactivés, ou repo inactif. Vérifier l'onglet Actions."
+          fi
+          AGE=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          if [ "$AGE" -ge 45 ]; then
+            git config user.name "garde-fou"
+            git config user.email "garde-fou@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keepalive (crons auto-disabled after 60 days of inactivity)"
+            git push origin main
+          fi
+      - name: Email vigie
+        if: ${{ steps.vigie.outputs.silence == '1' }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: Veille SaaS
+          to: ${{ secrets.GMAIL_USER }}
+          subject: "🛑 Vigie — pipeline silencieux"
+          body: "Aucun run de « Veille quotidienne » depuis 26 h. Voir l'issue GitHub créée."
