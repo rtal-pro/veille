@@ -65,6 +65,12 @@ jobs:
     timeout-minutes: 3
     outputs:
       deja_fait: ${{ steps.check.outputs.deja_fait }}
+    env:
+      # Job d'infra déterministe (pas un agent) : lit avec le rôle OWNER, qui
+      # bypass RLS. Évite le fail-open silencieux si la policy agent_veille
+      # venait à manquer (la requête agent renverrait 0 lignes sans erreur
+      # → deja_fait=0 → mémo dupliqué au run de reprise 11:00).
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - name: Un verdict du jour existe-t-il déjà ?
         id: check
@@ -79,6 +85,20 @@ jobs:
           else
             echo "deja_fait=0" >> "$GITHUB_OUTPUT"
           fi
+
+  alerte-infra:
+    needs: [preflight, migrations, porte]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Alerte issue si préflight/migrations/porte a échoué
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🛑 Pipeline — préflight/migrations/porte en échec ($(date -u +%F))" \
+            --body "Le préflight, les migrations ou la porte du jour ont échoué. Aucun mémo ne partira aujourd'hui. Voir le run : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   kiosque:
     needs: [porte]
@@ -108,7 +128,7 @@ jobs:
 
   instructeur:
     needs: [kiosque, prospecteur, porte]
-    if: ${{ !cancelled() && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -121,7 +141,7 @@ jobs:
 
   contre-avocat:
     needs: [instructeur, porte]
-    if: ${{ !cancelled() && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -134,12 +154,12 @@ jobs:
 
   rattrapage:
     needs: [contre-avocat, porte]
-    if: ${{ !cancelled() && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: "Porte du rattrapage : y a-t-il déjà un survivant aujourd'hui ?"
+      - name: "Porte du rattrapage : y a-t-il déjà un survivant récent (fenêtre 3 jours) ?"
         id: gate
         run: |
           set -euo pipefail
@@ -153,13 +173,13 @@ jobs:
                          where agent='contre-avocat' and date_run=current_date and dont_go >= 1)
             then 0 else 1 end")
           echo "besoin=$BESOIN" >> "$GITHUB_OUTPUT"
-          [ "$BESOIN" = "1" ] && echo "0 survivant aujourd'hui : deuxième vague." \
-                              || echo "Survivant déjà acquis : pas de deuxième vague (0 tour de quota)."
+          [ "$BESOIN" = "1" ] && echo "Aucun survivant récent (fenêtre 3 jours) : deuxième vague." \
+                              || echo "Survivant déjà acquis (fenêtre 3 jours) : pas de deuxième vague (0 tour de quota)."
       - uses: anthropics/claude-code-action@v1
         if: ${{ steps.gate.outputs.besoin == '1' }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: "Tu es l'agent RATTRAPAGE. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/rattrapage.md, et exécute intégralement ta mission (la porte du workflow a déjà vérifié qu'aucun survivant n'existe aujourd'hui)."
+          prompt: "Tu es l'agent RATTRAPAGE. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/rattrapage.md, et exécute intégralement ta mission (la porte du workflow a déjà vérifié qu'aucun survivant récent n'existe, sur une fenêtre de 3 jours)."
           claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
 
   atelier:

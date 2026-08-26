@@ -112,7 +112,7 @@ caso fail claude-args-extra-flag "sed -i -E '0,/--dangerously-skip-permissions\"
 # validated against ^claude-[a-z0-9.-]+$ — closes --model swallowing an
 # arbitrary unrecognized flag as its own "value" (e.g. --mcp-config=...),
 # which the old i+=2 bookkeeping never inspected.
-caso fail claude-args-model-eats-flag "sed -i -E '0,/--model claude-sonnet-4-6/s//--model --mcp-config=\\/tmp\\/x.json/' $W"
+caso fail claude-args-model-eats-flag "sed -i -E '0,/--model claude-[a-z0-9.-]+/s//--model --mcp-config=\\/tmp\\/x.json/' $W"
 
 # Third review round: two IMPORTANT findings, both in the structural rule
 # itself, both about attacks the tree-diff couldn't see because it trusted
