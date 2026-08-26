@@ -229,6 +229,46 @@ if printf '%s' "$out" | grep -q 'Traceback'; then
 fi
 git checkout -q main
 
+# Fifth review round: round 4's guard extracted `${{ ... }}` blocks with
+# `\$\{\{(.*?)\}\}` and searched inside each block. Two escapes beat that
+# extraction — both verified against the round-4 code before this rewrite —
+# and one context was simply missing from the word list. The guard no longer
+# parses braces at all: it now requires only that an opener `${{` and a
+# sensitive context word both appear somewhere in the value (a necessary
+# condition for reading a secret, which no escaping scheme can dodge, since
+# the context word IS the context's name).
+
+# prompt-format-brace-escape: GitHub Actions escapes a literal `}` inside
+# format() as `}}`. So `'{0}}}'` is a legal format string meaning "{0} then a
+# literal }". Round 4's non-greedy scan to the first `}}` therefore stopped
+# INSIDE the format string and extracted only " format('{0" — verified
+# directly: `_EXPR_RE.findall(payload)` returned `[" format('{0"]`, never
+# reaching `secrets`. The expression still evaluates to every secret in scope.
+caso fail prompt-format-brace-escape "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ format('\"'\"'{0}}}'\"'\"', toJSON(secrets)) }}\"/' $W"
+# prompt-yaml-newline: the second escape, from the OTHER grammar. `\n` in a
+# YAML double-quoted scalar decodes to a real newline, so the expression
+# contains one; `.` does not match a newline without re.DOTALL, so round 4
+# extracted NO block at all from this value. (The sed writes a literal
+# backslash-n into the file; YAML turns it into the newline. Verified the
+# parsed value really contains a newline, not the two characters.) This is
+# the case that best justifies abandoning brace-parsing: the bypass comes
+# from YAML, one layer below the expression syntax the regex was modelling.
+caso fail prompt-yaml-newline "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ toJSON(secrets)\\\\n  }}\"/' $W"
+# github.token is a real, usable credential (it authenticates against this
+# repo's API), and the `github` context was never in the round-4 word list —
+# no escaping needed, it simply wasn't looked for. Both leaf paths.
+caso fail prompt-github-token "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ github.token }}\"/' $W"
+caso fail stepname-github-token "sed -i -E '0,/- name: Préparer le mémo/s//- name: Préparer le mémo \${{ github.token }}/' $W"
+# prompt-prose-secrets-noopener: the second over-block control (alongside
+# prompt-needs-context). The new guard is deliberately coarse — it never
+# pairs the opener with the word — so the ONLY thing keeping ordinary prose
+# legal is the absence of a `${{` opener anywhere in the value. An agent must
+# stay able to write ABOUT secrets in a prompt without interpolating one.
+# Phrased so the word is never followed by a dot: `secrets.` in the raw diff
+# would trip rule 5 independently and make this case pass for a foreign
+# reason instead of testing the opener requirement.
+caso pass prompt-prose-secrets-noopener "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 Ne divulgue jamais les secrets de configuration.\"/' $W"
+
 # CWD independence: rule 1's glob and every git pathspec used to be resolved
 # relative to $PWD, so invoking the validator from a subdirectory silently
 # validated an empty/wrong file set. Run a forbidden mutation and invoke the

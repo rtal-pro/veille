@@ -156,44 +156,61 @@ ALLOWED = [
     ('jobs', '*', 'steps', '*', 'with', 'prompt'),
 ]
 
-# A `${{ secrets.X }}` or `${{ secrets['X'] }}` reference on a prompt/name
-# value: rule 5 (elsewhere in this script) only ever greps for the literal
-# substring `secrets.` (dotted form). Round 3 added a dedicated regex here
-# for the dotted AND bracket forms (`secrets\s*[.\[]`) — round 4's review
-# found a further escape: `${{ toJSON(secrets) }}` has "secrets" followed by
-# `)`, not `.` or `[`, so that narrower regex missed it entirely, and
-# `toJSON(secrets)` serializes and exfiltrates EVERY secret in scope (not
-# just one named key) into a job (kiosque) that has network egress.
+# Secret/token exfiltration through a modified `prompt:` or `name:` value.
+# This check has now been rewritten in four consecutive review rounds, and
+# the SHAPE of the rewrite matters more than any individual pattern:
 #
-# GUARANTEE this now provides, stated precisely: no GitHub Actions
-# expression (`${{ ... }}`) referencing the `secrets`, `env`, or `vars`
-# context — in ANY form (`secrets.X`, `secrets['X']`, `secrets["X"]`,
-# `toJSON(secrets)`, `format('...{0}...', secrets.X)`, `env.X`, `vars.X`,
-# or any other expression containing that context as a bare word) — may
-# appear in a modified `prompt:` or `name:` value. `${{ needs.* }}` (already
-# used legitimately in the atelier prompt to report upstream job statuses)
-# is NOT a sensitive context and remains allowed. The word "secrets" in
-# ordinary prose, outside any `${{ }}` expression entirely, also remains
-# allowed.
+#   round 2: rule 5's `secrets\.` grep only          → bracket form
+#                                                       `secrets['X']` escapes
+#   round 3: `secrets\s*[.\[]`                       → `toJSON(secrets)`
+#                                                       escapes ("secrets" is
+#                                                       followed by `)`)
+#   round 4: extract `\$\{\{(.*?)\}\}` blocks, then  → TWO escapes, both
+#            look for `\b(secrets|env|vars)\b`          verified:
+#              (a) `${{ format('{0}}}', toJSON(secrets)) }}` — GitHub Actions
+#                  escapes a literal `}` as `}}` inside format(), so the
+#                  non-greedy scan stops at the `}}` inside `'{0}}}'` and
+#                  extracts only " format('{0", never reaching `secrets`.
+#              (b) a YAML double-quoted scalar containing `\n` puts a REAL
+#                  newline inside the expression; `.` doesn't match newline
+#                  without re.DOTALL, so no block is extracted at all.
+#            Plus `github.token` (a real, usable credential) was never in
+#            the word list.
 #
-# DEVIATION from the literal review suggestion `\$\{\{[^}]*\b(secrets|env|vars)\b`:
-# that pattern's `[^}]*` stops scanning at the FIRST single `}` it meets —
-# but a legitimate GH Actions `format('{0}', ...)` call contains a bare `}`
-# from its own `{0}` placeholder, unrelated to the expression's actual `}}`
-# closer. Verified the literal suggestion misses this:
-#   `${{ format('{0}', secrets.A) }}` → `[^}]*` stops at the `}` in `{0}`,
-#   never reaches `secrets.A` → does NOT match → bypass.
-# Fixed by extracting each `${{ ... }}` block via a non-greedy match to the
-# literal TWO-character closer `}}` (so a lone internal `}` doesn't end the
-# scan early), then checking each extracted block's content for the
-# sensitive words. Verified against 11 cases including the format() bypass
-# above (now correctly rejected) and a legitimate two-arg `format()` call
-# using only `needs.*` (correctly still allowed).
-_EXPR_RE = re.compile(r'\$\{\{(.*?)\}\}')
-_SENSITIVE_WORD_RE = re.compile(r'\b(secrets|env|vars)\b')
+# LESSON, applied here: three rounds in a row, a regex that tried to model
+# the target grammar lost to the target grammar. GitHub Actions expressions
+# have their own escaping rules (`}}` for a literal brace) and sit inside
+# YAML, which has its own (`\n`, `\"`, folding) — so ANY attempt to delimit
+# "the expression" from the outside is fighting two escape layers at once
+# and will keep losing. Stop parsing braces entirely.
+#
+# Instead, test a NECESSARY CONDITION that no bypass can dodge, because it
+# is implied by the attack itself: to read a secret, a token, an env var or
+# a repo var, a workflow expression MUST contain (1) the expression opener
+# `${{` and (2) the literal context word. There is no way to name the
+# `secrets` context without writing "secrets" — `toJSON(secrets)`,
+# `format(..., secrets.X)`, `secrets['X']`, `github.token` all contain their
+# context word verbatim, under every escaping scheme, because that word is
+# the context's NAME. Both signals are searched over the WHOLE value,
+# independently; they are never paired up, so there is nothing left for an
+# escape sequence to break apart.
+#
+# GUARANTEE: a modified `prompt:` or `name:` value is rejected if it
+# contains an expression opener `${{` anywhere AND any of the words
+# secrets / env / vars / github anywhere. Deliberately over-approximate
+# (fail-closed): an expression and an unrelated mention of "env" in the same
+# value is rejected even if they are unconnected. Two things stay allowed,
+# and both are load-bearing, not incidental:
+#   - `${{ needs.* }}` — no sensitive word. Already shipped in the atelier
+#     prompt to report upstream job statuses; widening the word list would
+#     break it.
+#   - the word "secrets" in ordinary prose with NO `${{` opener anywhere in
+#     the value — an agent may write about secrets, just not interpolate one.
+_EXPR_OPEN_RE = re.compile(r'\$\{\{')
+_SENSITIVE_WORD_RE = re.compile(r'\b(secrets|env|vars|github)\b')
 
 def has_sensitive_expression(text):
-    return any(_SENSITIVE_WORD_RE.search(expr) for expr in _EXPR_RE.findall(text))
+    return bool(_EXPR_OPEN_RE.search(text)) and bool(_SENSITIVE_WORD_RE.search(text))
 
 class StrictLoader(yaml.SafeLoader):
     """SafeLoader that raises on duplicate mapping keys instead of last-wins."""
@@ -310,10 +327,10 @@ def walk(a, b, path, filename):
                 if '_constitution.md' not in str(b):
                     value_issues.append((filename, path, 'le prompt modifié ne référence plus _constitution.md'))
                 if has_sensitive_expression(str(b)):
-                    value_issues.append((filename, path, 'le prompt modifié référence secrets/env/vars dans une expression ${{ }}'))
+                    value_issues.append((filename, path, 'le prompt modifié contient une expression ${{ et un contexte sensible (secrets/env/vars/github)'))
             elif pat[-1] == 'name':
                 if has_sensitive_expression(str(b)):
-                    value_issues.append((filename, path, 'le nom de step modifié référence secrets/env/vars dans une expression ${{ }}'))
+                    value_issues.append((filename, path, 'le nom de step modifié contient une expression ${{ et un contexte sensible (secrets/env/vars/github)'))
             elif pat[-1] == 'claude_args':
                 if not validate_claude_args(b):
                     value_issues.append((filename, path, f'flag ou valeur non autorisé(e) dans claude_args : {b!r}'))
