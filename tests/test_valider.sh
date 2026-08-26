@@ -269,6 +269,51 @@ caso fail stepname-github-token "sed -i -E '0,/- name: Préparer le mémo/s//- n
 # reason instead of testing the opener requirement.
 caso pass prompt-prose-secrets-noopener "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 Ne divulgue jamais les secrets de configuration.\"/' $W"
 
+# Sixth review round: GitHub Actions resolves context NAMES case-insensitively
+# (actions/runner uses OrdinalIgnoreCase), but round 5's word list was
+# case-sensitive. So every payload below evaluates to a real secret/token at
+# runtime while reading as an unknown word to the guard. Verified end-to-end
+# against ef5d9a2 (the round-5 commit): all five passed.
+#
+# The fix inverts the polarity — a WHITELIST. Only `${{ needs.<job>.<field> }}`
+# is permitted in a prompt/name leaf; every permitted expression is stripped
+# and the value is rejected if any `${{` opener survives. Casing stops
+# mattering (an unrecognised spelling simply fails to strip), and so do
+# contexts nobody enumerated: `${{ inputs.* }}`, `${{ steps.*.outputs.* }}`
+# and any future context are all rejected by the same residual-opener test.
+#
+# COVERAGE NOTE, so these are not misread as five independent isolations of
+# the 4bis guard: rule 5's grep is also case-insensitive as of this round, and
+# its `secrets\.` pattern matches the DOTTED uppercase spelling. So
+# `prompt-secrets-uppercase` and `stepname-secrets-uppercase` are covered by
+# two layers and flip only when the whole round-5 state is restored. The
+# mixedcase/env/github cases below carry no dotted `secrets.`, are invisible
+# to rules 5 and 6 entirely, and therefore isolate the 4bis guard on their
+# own. Both facts are in the report's control matrix.
+caso fail prompt-secrets-uppercase "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ SECRETS.SUPABASE_DB_URL }}\"/' $W"
+caso fail prompt-secrets-mixedcase "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ toJSON(Secrets) }}\"/' $W"
+caso fail prompt-env-uppercase "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ ENV.SUPABASE_DB_URL }}\"/' $W"
+caso fail prompt-github-mixedcase "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ GitHub.token }}\"/' $W"
+caso fail stepname-secrets-uppercase "sed -i -E '0,/- name: Préparer le mémo/s//- name: Préparer le mémo \${{ SECRETS.SUPABASE_DB_URL }}/' $W"
+# The whitelist also closes contexts no round ever enumerated — the property
+# a blocklist could never have. `inputs` is not secret-bearing by itself, which
+# is exactly why it is the honest test of "anything but needs is refused"
+# rather than of "this word is dangerous".
+caso fail prompt-unenumerated-context "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ inputs.evil }}\"/' $W"
+# edit-atelier-prompt: the case that guards the whitelist's FALSE-REJECTION
+# risk, and the only one that exercises the permitted pattern against real
+# shipped input. The atelier prompt is the single value in either workflow
+# that already contains expressions — five of them, including the
+# quoted-bracket form `${{ needs['contre-avocat'].result }}` that a naive
+# `needs\.\w+` pattern would NOT strip. If _PERMITTED_EXPR_RE ever stops
+# covering a real form, its opener survives the strip and this legitimate
+# edit is rejected — fail-closed, but a broken workflow for the Superviseur.
+# Verified the edited value keeps all 5 expressions, keeps _constitution.md,
+# and strips to zero residual openers. No `0,/.../` range needed: exactly one
+# prompt line mentions ATELIER. The `l.agent` dot matches the apostrophe in
+# "l'agent" without breaking out of sed's single-quoted script.
+caso pass edit-atelier-prompt "sed -i -E 's/^( *prompt: \"Tu es l.agent ATELIER.*)\"\$/\1 Ajout experimental.\"/' $W"
+
 # CWD independence: rule 1's glob and every git pathspec used to be resolved
 # relative to $PWD, so invoking the validator from a subdirectory silently
 # validated an empty/wrong file set. Run a forbidden mutation and invoke the

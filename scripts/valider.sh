@@ -177,40 +177,60 @@ ALLOWED = [
 #            Plus `github.token` (a real, usable credential) was never in
 #            the word list.
 #
-# LESSON, applied here: three rounds in a row, a regex that tried to model
-# the target grammar lost to the target grammar. GitHub Actions expressions
-# have their own escaping rules (`}}` for a literal brace) and sit inside
-# YAML, which has its own (`\n`, `\"`, folding) — so ANY attempt to delimit
-# "the expression" from the outside is fighting two escape layers at once
-# and will keep losing. Stop parsing braces entirely.
+#   round 5: opener `${{` present AND `\b(secrets|env|vars|github)\b`
+#            present, searched independently over the whole value
+#                                                     → the word list is
+#            CASE-SENSITIVE, but GitHub Actions contexts are NOT. The runner
+#            (actions/runner) resolves context names with OrdinalIgnoreCase,
+#            so `${{ SECRETS.SUPABASE_DB_URL }}`, `${{ toJSON(Secrets) }}`,
+#            `${{ ENV.X }}` and `${{ GitHub.token }}` all evaluate normally
+#            and all passed. Verified end-to-end against commit ef5d9a2.
 #
-# Instead, test a NECESSARY CONDITION that no bypass can dodge, because it
-# is implied by the attack itself: to read a secret, a token, an env var or
-# a repo var, a workflow expression MUST contain (1) the expression opener
-# `${{` and (2) the literal context word. There is no way to name the
-# `secrets` context without writing "secrets" — `toJSON(secrets)`,
-# `format(..., secrets.X)`, `secrets['X']`, `github.token` all contain their
-# context word verbatim, under every escaping scheme, because that word is
-# the context's NAME. Both signals are searched over the WHOLE value,
-# independently; they are never paired up, so there is nothing left for an
-# escape sequence to break apart.
+# LESSON, applied here: FOUR rounds in a row, an enumerate-the-bad list lost
+# — to the grammar's escaping (rounds 3-4), then to its casing (round 5).
+# Every one of those was a blocklist: name the dangerous thing, hope the list
+# is complete. It never was. Rounds 3-5 also each shipped believing the list
+# was finally exhaustive, which is itself the evidence that this shape of
+# check cannot be finished.
 #
-# GUARANTEE: a modified `prompt:` or `name:` value is rejected if it
-# contains an expression opener `${{` anywhere AND any of the words
-# secrets / env / vars / github anywhere. Deliberately over-approximate
-# (fail-closed): an expression and an unrelated mention of "env" in the same
-# value is rejected even if they are unconnected. Two things stay allowed,
-# and both are load-bearing, not incidental:
-#   - `${{ needs.* }}` — no sensitive word. Already shipped in the atelier
-#     prompt to report upstream job statuses; widening the word list would
-#     break it.
-#   - the word "secrets" in ordinary prose with NO `${{` opener anywhere in
-#     the value — an agent may write about secrets, just not interpolate one.
+# So round 6 INVERTS THE POLARITY: a whitelist. Exactly one expression form
+# is permitted inside a `prompt:`/`name:` leaf — `${{ needs.<job>.<field> }}`,
+# which the atelier prompt legitimately uses to report upstream job results.
+# Strip every permitted expression from the value, then reject if ANY `${{`
+# opener survives.
+#
+# Why this ends the series: the check no longer depends on enumerating
+# dangerous contexts at all. Casing is handled (re.IGNORECASE on the
+# permitted form, and an unrecognised casing simply fails to strip and leaves
+# a residual opener). Contexts nobody thought to enumerate are handled for
+# the same reason — `${{ inputs.x }}`, `${{ steps.a.outputs.b }}`,
+# `${{ runner.tool_cache }}` and any future context all leave a residual
+# `${{` and are rejected. Escaping tricks are handled because the residual
+# test only looks for the OPENER, which no escape can remove: an expression
+# that does not start with `${{` is not an expression.
+#
+# Failure direction is safe by construction: if a legitimate needs-expression
+# ever fails to match the permitted pattern, its opener survives the strip
+# and the edit is REJECTED (a false rejection an author can see and reword),
+# never silently admitted. The pattern is therefore verified against the real
+# atelier prompt rather than assumed — see the test suite's
+# `prompt-needs-context` case and Fix Round 6 in the task report, which
+# confirm all five shipped `needs` expressions (including the quoted-bracket
+# form `needs['contre-avocat'].result`) strip to zero residual openers.
+#
+# GUARANTEE: a modified `prompt:` or `name:` value may contain NO GitHub
+# Actions expression other than `${{ needs.<job>.<field>... }}`. Prose is
+# unaffected — a value with no `${{` opener anywhere is always allowed, so an
+# agent may still write ABOUT secrets, just never interpolate anything but a
+# needs-result. This holds only because rule 4bis structurally confines edits
+# to the allowed key-paths in the first place.
+_PERMITTED_EXPR_RE = re.compile(
+    r"\$\{\{\s*needs(?:\.[\w-]+|\['[\w-]+'\])(?:\.[\w-]+)+\s*\}\}", re.IGNORECASE)
 _EXPR_OPEN_RE = re.compile(r'\$\{\{')
-_SENSITIVE_WORD_RE = re.compile(r'\b(secrets|env|vars|github)\b')
 
 def has_sensitive_expression(text):
-    return bool(_EXPR_OPEN_RE.search(text)) and bool(_SENSITIVE_WORD_RE.search(text))
+    residual = _PERMITTED_EXPR_RE.sub('', text)
+    return bool(_EXPR_OPEN_RE.search(residual))
 
 class StrictLoader(yaml.SafeLoader):
     """SafeLoader that raises on duplicate mapping keys instead of last-wins."""
@@ -327,10 +347,10 @@ def walk(a, b, path, filename):
                 if '_constitution.md' not in str(b):
                     value_issues.append((filename, path, 'le prompt modifié ne référence plus _constitution.md'))
                 if has_sensitive_expression(str(b)):
-                    value_issues.append((filename, path, 'le prompt modifié contient une expression ${{ et un contexte sensible (secrets/env/vars/github)'))
+                    value_issues.append((filename, path, 'le prompt modifié contient une expression ${{ }} autre que ${{ needs.<job>.<champ> }}'))
             elif pat[-1] == 'name':
                 if has_sensitive_expression(str(b)):
-                    value_issues.append((filename, path, 'le nom de step modifié contient une expression ${{ et un contexte sensible (secrets/env/vars/github)'))
+                    value_issues.append((filename, path, 'le nom de step modifié contient une expression ${{ }} autre que ${{ needs.<job>.<champ> }}'))
             elif pat[-1] == 'claude_args':
                 if not validate_claude_args(b):
                     value_issues.append((filename, path, f'flag ou valeur non autorisé(e) dans claude_args : {b!r}'))
@@ -364,8 +384,14 @@ PY
 fi
 
 # 5. Permissions & secrets frozen — but claude_args lines (model/turns) are allowed.
+# `grep -i` (round 6): GitHub Actions resolves context names case-insensitively
+# (actions/runner uses OrdinalIgnoreCase), so `${{ SECRETS.X }}` is a working
+# secret reference that this rule's case-sensitive `secrets\.` was blind to —
+# the same blind spot round 6 fixed in the structural guard. Defense in depth:
+# this rule is not the primary guard for prompt/name (rule 4bis is), but it
+# must not be the weak link for the workflow lines it DOES cover.
 if git diff "$RANGE" -- .github/workflows/ | grep -E '^[+-]' | grep -v 'claude_args:' \
-   | grep -E '(permissions:|id-token|contents:|issues:|actions:|pull-requests:|secrets\.)'; then
+   | grep -iE '(permissions:|id-token|contents:|issues:|actions:|pull-requests:|secrets\.)'; then
   echo "ERREUR : permissions/secrets touchés — merge interdit."; exit 1
 fi
 
@@ -376,7 +402,10 @@ fi
 # is printed — still fail-closed (nonzero exit) but with no diagnostic. The
 # `|| true` keeps count_at's own exit status 0 so the surrounding count
 # comparison below can run and report which pattern's count changed.
-count_at() { { git grep -c -e "$2" "$1" -- '.github/workflows/*.yml' 2>/dev/null || true; } \
+# `-i` (round 6): counts must be case-insensitive for the same OrdinalIgnoreCase
+# reason as rule 5 — otherwise adding `SECRETS.X` leaves the `secrets\.` count
+# unchanged and the mutation slips past this comparison entirely.
+count_at() { { git grep -ic -e "$2" "$1" -- '.github/workflows/*.yml' 2>/dev/null || true; } \
              | awk -F: '{s+=$NF} END {print s+0}'; }
 for pat in 'dangerously-skip-permissions' 'secrets\.'; do
   A=$(count_at "$BASE" "$pat"); B=$(count_at "$HEADREF" "$pat")
