@@ -144,6 +144,91 @@ caso fail prompt-secret-bracket "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ 
 # gap with the same regex applied to the 'name' leaf path too.
 caso fail stepname-secret-bracket "sed -i -E '0,/- name: Préparer le mémo/s//- name: Préparer le mémo \${{ secrets['\"'\"'GMAIL_APP_PASSWORD'\"'\"'] }}/' $W"
 
+# Fourth review round: the round-3 regex `secrets\s*[.\[]` only ever matched
+# `secrets` immediately followed by `.` or `[`. Three expression forms escape
+# it entirely while still reaching a secret: `${{ toJSON(secrets) }}` ("secrets"
+# followed by `)`, and it serializes EVERY secret in scope, not one named key),
+# `${{ env.X }}` and `${{ vars.X }}` (the word "secrets" never appears at all,
+# yet `env.` re-reads the workflow-level env block that holds SUPABASE_DB_URL
+# and FIRECRAWL_API_KEY). Closed by `has_sensitive_expression()`: extract each
+# `${{ ... }}` block, reject if its CONTENT contains secrets/env/vars as a bare
+# word. Every case below deliberately KEEPS `_constitution.md` in the prompt,
+# so content constraint (a) cannot fire and the new guard is the only thing
+# that can reject them.
+caso fail prompt-tojson-secrets "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ toJSON(secrets) }}\"/' $W"
+# prompt-format-secrets: pins the ONE subtlety that separates the shipped
+# implementation from the reviewer's literal suggestion
+# `\$\{\{[^}]*\b(secrets|env|vars)\b`. That pattern's `[^}]*` stops at the
+# first single `}` — which a legitimate `format('{0}', ...)` call supplies
+# from its own `{0}` placeholder, long before the expression's real `}}`
+# closer — so it silently misses this. The shipped version scans to the
+# literal two-character `}}` instead and catches it.
+# DEVIATION from the brief's literal payload `${{ format('{0}', secrets.GMAIL_APP_PASSWORD) }}`:
+# that dotted spelling is VACUOUS here. Verified by running it against four
+# builds of the guard (shipped / neutered / round-3 regex / the literal
+# suggestion above): it reports "fail" under ALL FOUR, because the dotted
+# `secrets.` survives into the raw diff text where rule 5's own `secrets\.`
+# grep catches it independently. A case that never flips pins nothing, so the
+# payload uses `toJSON(secrets)` inside the format() call instead — same
+# brace-truncation trap, but invisible to rule 5, to rule 6's count, and to
+# the round-3 regex, which makes it the only case in this suite that isolates
+# the two-character-closer scan.
+caso fail prompt-format-secrets "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ format('\"'\"'{0}'\"'\"', toJSON(secrets)) }}\"/' $W"
+caso fail prompt-env-context "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ env.SUPABASE_DB_URL }}\"/' $W"
+# vars: the third context named in has_sensitive_expression's guarantee. No
+# `vars:` block exists in this repo's workflows today, so this case pins the
+# stated guarantee rather than a live exposure — a repo-level `vars` entry
+# added later must not become a silent prompt-readable channel.
+caso fail prompt-vars-context "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ vars.EXFIL_ENDPOINT }}\"/' $W"
+# Same escape on the step `name:` leaf — the path rule 5 and rule 6 never
+# watched at all, so the 4bis content guard is its ONLY protection, dotted
+# form or not.
+caso fail stepname-tojson-secrets "sed -i -E '0,/- name: Préparer le mémo/s//- name: Préparer le mémo \${{ toJSON(secrets) }}/' $W"
+# prompt-needs-context: the over-block control for the guard above. `needs` is
+# NOT a sensitive context and the atelier prompt already ships `${{
+# needs.kiosque.result }}` legitimately, so widening the sensitive-word list
+# (or matching every `${{ }}` indiscriminately) would break a real, in-use
+# feature. Verified this case flips pass→fail the moment `needs` is added to
+# _SENSITIVE_WORD_RE — it is a genuine constraint, not a decorative PASS.
+caso pass prompt-needs-context "sed -i -E '0,/^( *prompt: \".*)\"\$/s//\1 \${{ needs.kiosque.result }}\"/' $W"
+# unhashable-key: YAML's complex-key syntax (`? [a, b]` / `: c`) makes the
+# mapping key a list. In the NORMAL invocation below (working tree == HEAD),
+# this is rejected by rule 1, whose bare `yaml.safe_load` raises
+# ConstructorError first — so this line pins fail-closed behaviour ONLY, and
+# is NOT coverage of round 4's `TypeError` catch in rule 4bis's strict loader.
+# The bespoke block further down is what actually reaches that catch; the two
+# are kept separate rather than conflated, so nobody reads this one-liner as
+# proof of something it never executes.
+caso fail unhashable-key "sed -i '0,/^env:/s//&\\n  ? [a, b]\\n  : c/' $W"
+
+# unhashable-key, deferred-HEAD form: the ONLY invocation that reaches round
+# 4's `TypeError` catch, and the real Gendarme usage (validating a pushed
+# range without checking it out, so HEADREF != working tree). Rule 1 then
+# parses a clean working tree and passes; rule 4bis loads the mutated ref via
+# `git show` through StrictLoader, whose `_no_duplicates_constructor` does
+# `if key in mapping` on an unhashable list key — a TypeError, NOT a
+# yaml.YAMLError, so before round 4 it escaped the except clause entirely.
+# ASSERTS ON OUTPUT TEXT, not exit status, and that is the whole point:
+# verified the exit code is 1 BOTH with and without the TypeError in the
+# except clause (fail-closed either way), so a plain `caso fail` here would
+# report "fail" identically against a validator that never had the fix. Only
+# "clean ERREUR present / traceback absent" distinguishes them.
+git checkout -qb t-unhashable-head main
+sed -i '0,/^env:/s//&\n  ? [a, b]\n  : c/' "$W"
+git add -A
+git diff --cached --quiet && { echo "FAIL case 'unhashable-head': mutation produced no diff"; exit 1; }
+git commit -qm "superviseur: unhashable-head" -q
+git checkout -q main   # working tree back on clean main; only HEADREF carries the mutation
+if out=$(bash scripts/valider.sh origin/main t-unhashable-head 2>&1); then got=pass; else got=fail; fi
+[ "$got" = "fail" ] || { echo "FAIL case 'unhashable-head': expected fail got $got"; exit 1; }
+if ! printf '%s' "$out" | grep -q 'ERREUR'; then
+  echo "FAIL case 'unhashable-head': no clean ERREUR line in output"; exit 1
+fi
+if printf '%s' "$out" | grep -q 'Traceback'; then
+  echo "FAIL case 'unhashable-head': uncaught traceback (TypeError not handled)"; exit 1
+fi
+git checkout -q main
+
 # CWD independence: rule 1's glob and every git pathspec used to be resolved
 # relative to $PWD, so invoking the validator from a subdirectory silently
 # validated an empty/wrong file set. Run a forbidden mutation and invoke the

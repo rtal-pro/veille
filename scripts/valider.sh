@@ -158,12 +158,42 @@ ALLOWED = [
 
 # A `${{ secrets.X }}` or `${{ secrets['X'] }}` reference on a prompt/name
 # value: rule 5 (elsewhere in this script) only ever greps for the literal
-# substring `secrets.` (dotted form) — the bracket form escapes it entirely,
-# and neither form is checked at all on a step's `name:` value, since name
-# was never in scope for rule 5's frozen-lines check. Catch both forms here,
-# directly on the two leaf paths where a secret could otherwise cross a job
-# boundary via free-form text.
-SECRETS_REF_RE = re.compile(r'secrets\s*[.\[]')
+# substring `secrets.` (dotted form). Round 3 added a dedicated regex here
+# for the dotted AND bracket forms (`secrets\s*[.\[]`) — round 4's review
+# found a further escape: `${{ toJSON(secrets) }}` has "secrets" followed by
+# `)`, not `.` or `[`, so that narrower regex missed it entirely, and
+# `toJSON(secrets)` serializes and exfiltrates EVERY secret in scope (not
+# just one named key) into a job (kiosque) that has network egress.
+#
+# GUARANTEE this now provides, stated precisely: no GitHub Actions
+# expression (`${{ ... }}`) referencing the `secrets`, `env`, or `vars`
+# context — in ANY form (`secrets.X`, `secrets['X']`, `secrets["X"]`,
+# `toJSON(secrets)`, `format('...{0}...', secrets.X)`, `env.X`, `vars.X`,
+# or any other expression containing that context as a bare word) — may
+# appear in a modified `prompt:` or `name:` value. `${{ needs.* }}` (already
+# used legitimately in the atelier prompt to report upstream job statuses)
+# is NOT a sensitive context and remains allowed. The word "secrets" in
+# ordinary prose, outside any `${{ }}` expression entirely, also remains
+# allowed.
+#
+# DEVIATION from the literal review suggestion `\$\{\{[^}]*\b(secrets|env|vars)\b`:
+# that pattern's `[^}]*` stops scanning at the FIRST single `}` it meets —
+# but a legitimate GH Actions `format('{0}', ...)` call contains a bare `}`
+# from its own `{0}` placeholder, unrelated to the expression's actual `}}`
+# closer. Verified the literal suggestion misses this:
+#   `${{ format('{0}', secrets.A) }}` → `[^}]*` stops at the `}` in `{0}`,
+#   never reaches `secrets.A` → does NOT match → bypass.
+# Fixed by extracting each `${{ ... }}` block via a non-greedy match to the
+# literal TWO-character closer `}}` (so a lone internal `}` doesn't end the
+# scan early), then checking each extracted block's content for the
+# sensitive words. Verified against 11 cases including the format() bypass
+# above (now correctly rejected) and a legitimate two-arg `format()` call
+# using only `needs.*` (correctly still allowed).
+_EXPR_RE = re.compile(r'\$\{\{(.*?)\}\}')
+_SENSITIVE_WORD_RE = re.compile(r'\b(secrets|env|vars)\b')
+
+def has_sensitive_expression(text):
+    return any(_SENSITIVE_WORD_RE.search(expr) for expr in _EXPR_RE.findall(text))
 
 class StrictLoader(yaml.SafeLoader):
     """SafeLoader that raises on duplicate mapping keys instead of last-wins."""
@@ -279,11 +309,11 @@ def walk(a, b, path, filename):
             elif pat[-1] == 'prompt':
                 if '_constitution.md' not in str(b):
                     value_issues.append((filename, path, 'le prompt modifié ne référence plus _constitution.md'))
-                if SECRETS_REF_RE.search(str(b)):
-                    value_issues.append((filename, path, 'le prompt modifié référence secrets (forme pointée ou crochet)'))
+                if has_sensitive_expression(str(b)):
+                    value_issues.append((filename, path, 'le prompt modifié référence secrets/env/vars dans une expression ${{ }}'))
             elif pat[-1] == 'name':
-                if SECRETS_REF_RE.search(str(b)):
-                    value_issues.append((filename, path, 'le nom de step modifié référence secrets (forme pointée ou crochet)'))
+                if has_sensitive_expression(str(b)):
+                    value_issues.append((filename, path, 'le nom de step modifié référence secrets/env/vars dans une expression ${{ }}'))
             elif pat[-1] == 'claude_args':
                 if not validate_claude_args(b):
                     value_issues.append((filename, path, f'flag ou valeur non autorisé(e) dans claude_args : {b!r}'))
@@ -293,7 +323,13 @@ for f in files:
     try:
         base_doc = load(base, f, is_head=False)
         head_doc = load(head, f, is_head=True)
-    except (yaml.YAMLError, LookupError) as e:
+    # TypeError also caught: `_no_duplicates_constructor`'s `if key in
+    # mapping` raises TypeError (not a yaml.YAMLError) on an unhashable
+    # mapping key, e.g. YAML's complex-key syntax `? [a, b] : c`. Without
+    # this, that case would escape as an uncaught traceback instead of a
+    # clean ERREUR message — still fail-closed either way (nonzero exit),
+    # this just makes the failure legible like every other error path here.
+    except (yaml.YAMLError, LookupError, TypeError) as e:
         print(f"ERREUR : {f} : {e}")
         exit_code = 1
         continue
