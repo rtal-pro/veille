@@ -9,9 +9,22 @@ ne validera rien en cours de run.
 
 - Base Postgres (Supabase) : `psql "$SUPABASE_DB_URL" -c "..."` (ou heredoc pour le multi-lignes).
   Échappe les apostrophes SQL en les doublant (`''`).
-- Web : outils WebSearch/WebFetch, et `curl` en Bash. Si `$FIRECRAWL_API_KEY` est défini,
-  tu peux utiliser l'API Firecrawl pour les sites à anti-bot :
-  `curl -s -X POST https://api.firecrawl.dev/v2/scrape -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"url":"..."}'`
+- Web : outils WebSearch/WebFetch, et `curl` en Bash. **Firecrawl (`$FIRECRAWL_API_KEY`
+  défini) est ton moteur de découverte LARGE — pas un simple débloqueur de 2-3 sites.**
+  Trois usages, pilotés par REQUÊTE (jamais une liste de sources figée) :
+  - **Découvrir large** — `/v2/search` cherche tout le web FR et rend le contenu des
+    résultats. Réflexe `location:"France"` (le WebSearch de base ratisse surtout US) ;
+    `tbs:"qdr:w"` pour du frais. Coût : 2 crédits / 10 résultats (liens), +1/page si scrape.
+    `curl -s -X POST https://api.firecrawl.dev/v2/search -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"query":"...","limit":10,"location":"France","tbs":"qdr:w"}'`
+  - **Élargir un gisement** — `/v2/map` rend TOUTES les URLs d'un domaine (filtre `search`),
+    **1 crédit** quel que soit le nombre. Un forum/blog prometteur → des centaines de fils.
+    `curl -s -X POST https://api.firecrawl.dev/v2/map -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"url":"https://...","search":"mot-clé"}'`
+  - **Lire une page** — `/v2/scrape` (1 URL → markdown propre, 1 crédit), à réserver aux
+    pages qui valent le coup et aux sites à anti-bot.
+    `curl -s -X POST https://api.firecrawl.dev/v2/scrape -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"url":"..."}'`
+  - **Règle d'or crédits (free tier, ~33/jour)** : la largeur vient de `/search` (liens
+    d'abord) + `/map` (1 cr) ; `/scrape` avec parcimonie. Crédits épuisés → l'API renvoie
+    une erreur : retombe sur WebFetch/curl gratuit, ne bloque jamais.
 - Interdit : `git commit`, `git push`, modifier les fichiers du repo, toucher aux secrets.
   Seule exception : l'agent SUPERVISEUR peut créer une branche, ouvrir une Pull Request
   et la merger lui-même APRÈS succès de `scripts/valider.sh` — jamais de push direct sur
