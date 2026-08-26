@@ -184,7 +184,7 @@ jobs:
 
   atelier:
     needs: [preflight, porte, kiosque, prospecteur, instructeur, contre-avocat, rattrapage]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
