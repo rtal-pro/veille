@@ -19,7 +19,7 @@ LIMIT 15;
 
 -- Retours au vivier (morts sur doute, rétrogradés qualité, ressuscités) — les
 -- plus anciens d'abord : sans ce guichet, ils ne reviennent jamais.
-SELECT id, clone_nom, job_to_be_done, secteur, notes
+SELECT id, clone_nom, job_to_be_done, secteur, notes, rapport_attaque
 FROM prospection_clones
 WHERE statut_pipeline='lead'
   AND (rapport_attaque IS NOT NULL
