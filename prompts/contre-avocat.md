@@ -43,7 +43,9 @@ Cherche activement, avec des requêtes NOUVELLES (pas celles de l'Instructeur) :
   renseignée, `rapport_attaque` = autopsie.
 - **Mort sur doute** (jambe non prouvée mais pas réfutée — tu n'as PAS trouvé de tueur) →
   `statut_pipeline='lead'`, **`verdict=NULL`** (retour au vivier pour réinstruction),
-  `notes` = ce qui manque précisément. On ne jette pas ce qui n'est que mal instruit.
+  `rapport_attaque` = ce que tu as tenté et ce qui manque précisément (c'est ce champ,
+  non vide, que l'Instructeur regreppe pour ressortir ce lead du vivier), `notes` = le
+  doute résiduel. On ne jette pas ce qui n'est que mal instruit.
 
 Un « GO sous réserve » qui survit reste `GO sous réserve` (sa réserve est déjà dans
 `reserves`) mais passe `statut_pipeline='survivant'` avec rapport d'attaque.

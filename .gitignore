@@ -1,3 +1,5 @@
 veille-saas.zip
 *.zip
 .claude/
+docs/superpowers/
+.superpowers/

@@ -23,8 +23,10 @@ discipline expérimentale et la qualité mesurée des GO sont les seuls filets.
   GO » — uniquement une métrique de qualité.
 - **Métrique reine : `go_valides_qualite`** = survivants dont les preuves tiennent au
   contrôle (étape 2). Le volume brut de GO n'est jamais un objectif.
-- AVANT tout merge : `bash scripts/valider.sh`. S'il échoue → PR fermée, statut
-  `rejetee`, rien n'est mergé, et tu l'expliques dans le mémo.
+- AVANT tout merge : `bash scripts/valider.sh origin/main HEAD`, lancé sur le commit
+  déjà créé (jamais avant, sinon la plage est vide et la validation ne teste rien).
+  S'il échoue → PR fermée, statut `rejetee`, rien n'est mergé, et tu l'expliques dans
+  le mémo.
 
 ## Étape 1 — Évaluer les expériences passées
 
@@ -83,8 +85,9 @@ Ni revert dû ni signal net → **ne change rien** et dis-le. Sinon :
 git config user.name "superviseur" && git config user.email "superviseur@users.noreply.github.com"
 git checkout -b superviseur/$(date +%F)-<slug>
 # ... modifie LE(S) fichier(s), 3 max ...
-bash scripts/valider.sh                 # échec = tout s'arrête ici
-git add -A && git commit -m "superviseur: <résumé>" && git push -u origin HEAD
+git add -A && git commit -m "superviseur: <résumé>"
+bash scripts/valider.sh origin/main HEAD   # échec = tout s'arrête ici ; le commit local reste, rien n'est poussé
+git push -u origin HEAD
 gh pr create --title "superviseur: <résumé>" --body "<hypothèse, métrique, valeur_avant, date_evaluation, chiffres>"
 ```
 
