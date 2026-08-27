@@ -180,8 +180,13 @@ jobs:
                          where agent='contre-avocat' and date_run=current_date and dont_go >= 1)
             then 0 else 1 end")
           echo "besoin=$BESOIN" >> "$GITHUB_OUTPUT"
-          [ "$BESOIN" = "1" ] && echo "Aucun survivant récent (fenêtre 3 jours) : deuxième vague." \
-                              || echo "Survivant déjà acquis (fenêtre 3 jours) : pas de deuxième vague (0 tour de quota)."
+          if [ "$BESOIN" = "1" ]; then
+            echo "Aucun survivant récent (fenêtre 3 jours) : deuxième vague."
+          else
+            echo "Survivant déjà acquis (fenêtre 3 jours) : pas de deuxième vague (0 tour de quota)."
+            psql "$SUPABASE_DB_URL" -c "insert into veille_runs (date_run, agent, candidats_inseres, dont_go, constats_methode, notes, metriques) values (current_date, 'rattrapage', 0, 0, 'STAND-DOWN déterministe (porte du workflow) : survivant récent déjà acquis, 2e vague inutile.', 'Rien à rattraper — 0 tour de quota consommé.', '{\"budget_respecte\":true,\"stand_down\":true}'::jsonb);" \
+              || echo "journal stand-down non écrit (non bloquant)"
+          fi
       - uses: anthropics/claude-code-action@v1
         if: ${{ steps.gate.outputs.besoin == '1' }}
         with:
