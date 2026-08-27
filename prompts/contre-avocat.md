@@ -32,6 +32,12 @@ Cherche activement, avec des requêtes NOUVELLES (pas celles de l'Instructeur) :
 3. La faille de la jambe la plus faible du `statut_jambes` (vérifie l'URL de preuve :
    dit-elle vraiment ce qui est affirmé ?).
 4. La barrière oubliée (réglementaire, technique, distribution).
+5. **L'absorption par l'incumbent** (test de défendabilité, cf. constitution) : un acteur
+   FR dominant du même espace **cible-t-il publiquement CE job** — contenu SEO, roadmap,
+   changelog, marketing, **URL à l'appui** — en tenant déjà l'audience de la cible, **sans
+   avoir livré le produit** ? Cette URL est la preuve qu'il va l'absorber → **TUEUR** (mort
+   avec preuve : URL du contenu de l'incumbent + son audience sur le sujet). **Sans URL de
+   ciblage, ce n'est qu'une hypothèse** — ne tue pas sur une vélocité de build supposée.
 
 ## Les trois issues
 

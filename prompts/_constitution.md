@@ -97,6 +97,17 @@ le système sait déjà se relit, ne se redécouvre pas.
 1. **Trou FR d'abord** (~15-20 min de recherche EN FRANÇAIS : concurrents FR, fonction
    native de la plateforme, substitut gratuit dominant). C'est le tueur n°1 (37 % des
    écartés historiques). S'il n'y a pas de trou → écarte immédiatement, n'instruis rien d'autre.
+   **Test d'absorption (défendabilité) — même quand le trou existe** : le déclencheur est
+   OBSERVABLE, pas spéculatif. Si un acteur FR dominant du même espace (PMS, plateforme,
+   éditeur) **cible publiquement CE job précis** — contenu SEO, roadmap, changelog, page
+   marketing, **URL à l'appui** — tout en tenant DÉJÀ l'audience de la cible, **mais sans
+   avoir livré le produit**, c'est la preuve qu'il va absorber la fonction. « Personne ne
+   l'a encore » n'est alors pas un trou, c'est une feature en attente d'absorption →
+   `trou_fr` **RÉFUTÉ** (URL du contenu de l'incumbent dans `argument_decisif`),
+   `verdict='écarté'`, **sauf si tu PROUVES un coin défendable** (moat de données, verrou
+   d'intégration, certification/agrément, ou un segment que l'incumbent ne poursuivra pas).
+   **Sans cette URL de ciblage, l'absorption reste `HYPOTHÈSE`, jamais `RÉFUTÉ`** — une
+   vélocité de build supposée n'est pas une preuve (règle maison : aucun kill sans URL lue).
 2. Canal self-serve identifiable. 3. Willingness-to-pay. 4. Traction/preuve de demande.
 
 ## Barrières = kill immédiat (vague 0)
