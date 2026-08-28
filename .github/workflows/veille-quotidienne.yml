@@ -22,6 +22,13 @@ env:
   # Agents run under the restricted agent_veille role; prompts read $SUPABASE_DB_URL.
   SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_AGENT }}
   FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+  # Plafonds Firecrawl, lus par scripts/fc.sh (guichet unique). Réglables sans
+  # toucher au code : Settings → Secrets and variables → Actions → Variables.
+  # Le budget est GLOBAL AU JOUR et partagé par tous les agents et tous les runs
+  # (compteur en base, table firecrawl_appels) — pas un budget par processus.
+  FIRECRAWL_BUDGET_JOUR: ${{ vars.FIRECRAWL_BUDGET_JOUR || '10' }}
+  FIRECRAWL_CAP_RUN: ${{ vars.FIRECRAWL_CAP_RUN || '6' }}
+  FIRECRAWL_RESERVE: ${{ vars.FIRECRAWL_RESERVE || '40' }}
 
 jobs:
   preflight:
@@ -113,6 +120,8 @@ jobs:
     needs: [porte]
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    env:
+      FC_AGENT: kiosque
     steps:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1
@@ -125,6 +134,8 @@ jobs:
     needs: [porte]
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      FC_AGENT: prospecteur
     steps:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1
@@ -138,6 +149,8 @@ jobs:
     if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    env:
+      FC_AGENT: instructeur
     steps:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1
@@ -151,6 +164,8 @@ jobs:
     if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      FC_AGENT: contre-avocat
     steps:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1
@@ -164,6 +179,8 @@ jobs:
     if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      FC_AGENT: rattrapage
     steps:
       - uses: actions/checkout@v4
       - name: "Porte du rattrapage : y a-t-il déjà un survivant récent (fenêtre 3 jours) ?"
@@ -199,6 +216,8 @@ jobs:
     if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      FC_AGENT: atelier
     steps:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1

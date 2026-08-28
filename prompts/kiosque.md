@@ -47,8 +47,11 @@ d'abord, puis EN/DE :
 - « gérer [tâche pénible] sur Excel » — l'Excel douloureux d'un métier = un SaaS qui attend
 - « [SaaS] ferme / shutting down / sunset » — clients orphelins = demande instantanée
 - et tout fil que ta lecture du jour t'inspire.
-- **Firecrawl `/v2/search` `location:"France"`** (voir constitution) pour ratisser LARGE
-  au-delà de ce que Google FR indexe — c'est là que remontent les douleurs non servies.
+- **En dernier recours seulement**, si WebSearch a déjà échoué sur l'angle :
+  `scripts/fc.sh search '{"query":"...","location":"France"}'` (voir constitution —
+  stock payant, plafonné, un refus n'est pas une panne). Vérifie `scripts/fc.sh solde`
+  au démarrage : la plupart des jours, la réponse sera « pas de crédits pour de la
+  découverte », et ta recherche libre se fait alors entièrement en WebSearch.
 
 **Terriers de lapin autorisés** : quand un fil est chaud (un outil cité partout, un
 prix étonnant, une plainte qui revient), suis-le — page pricing, concurrents, avis —
@@ -74,7 +77,7 @@ Excel, « quelqu'un connaît un outil pour… ». Elles te donnent aussi le VOCA
 métier — recycle-le immédiatement en requêtes libres.
 - Sous-cotés et accessibles : forums de support (Shopify Community, WordPress.org),
   **issues GitHub des outils populaires du vertical** (plaintes horodatées, publiques,
-  citables), Stack Exchange, Reddit (teste l'accès en cascade : direct → old.reddit → flux .rss/.json → Firecrawl ;
+  citables), Stack Exchange, Reddit (teste l'accès en cascade : direct → old.reddit → flux .rss/.json → `scripts/fc.sh scrape` ;
   mur persistant → journalise et enterre provisoirement).
 - Ce qu'une communauté PROUVE : la douleur et sa récurrence. Ce qu'elle ne prouve
   JAMAIS : la WTP ni le canal.

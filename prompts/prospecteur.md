@@ -35,8 +35,11 @@ et note-le au journal. Ne récite JAMAIS les codes de mémoire.
    - ses salons professionnels (la liste des exposants « logiciel » = carte des concurrents),
    - les comparatifs « logiciel pour [métier] » (appvizer, Capterra FR, blogs métier),
    - son éventuel app store / écosystème (plateformes métier, marketplaces),
-   - **Firecrawl `/v2/search` `location:"France"`** (voir constitution) pour débusquer
-     ces lieux de preuve au-delà de Google, et `/v2/map` pour vider un domaine trouvé.
+   - une fois un domaine prometteur trouvé (et seulement là) :
+     `scripts/fc.sh map '{"url":"https://...","search":"mot-clé"}'` — 1 crédit pour
+     vider tout le gisement, le meilleur rapport du budget. La découverte large
+     par `fc.sh search` reste un dernier recours après échec de WebSearch (voir
+     constitution) ; vérifie ton solde avant d'en faire un plan.
 3. Chaque lieu trouvé → `INSERT INTO sources (url, nom, type_preuve, decouverte_via, statut)`
    avec `decouverte_via='prospecteur:NAF XXXX'`, statut `candidate`.
 4. Passe le secteur en `exploree` avec `date_exploration=CURRENT_DATE` et `notes`

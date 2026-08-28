@@ -97,7 +97,7 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | `SUPABASE_DB_URL_AGENT` | même chaîne pooler, mais avec l'utilisateur `agent_veille.<project-ref>` — le rôle restreint (pas de DELETE, pas de DDL) que tu généreras à l'**étape 6 ter**. Reviens créer ce secret une fois cette étape faite ; c'est lui que lisent tous les jobs agents (mappé sur l'env `SUPABASE_DB_URL` qu'attendent les prompts). |
 | `GMAIL_USER` | ton adresse Gmail |
 | `GMAIL_APP_PASSWORD` | un **mot de passe d'application** Gmail (myaccount.google.com → Sécurité → Validation en 2 étapes → Mots de passe des applications) |
-| `FIRECRAWL_API_KEY` | *(optionnel)* clé du free tier firecrawl.dev — moteur de découverte FR large (`/search` + `/map`), et déblocage des sites à anti-bot |
+| `FIRECRAWL_API_KEY` | *(optionnel)* clé firecrawl.dev — **stock de crédits fini**, dépensé en priorité pour débloquer les sites à anti-bot (`/scrape`) et vider un gisement qualifié (`/map`) ; la découverte large (`/search`) est un dernier recours. Tous les appels passent par `scripts/fc.sh`, qui plafonne et journalise (voir « Budget Firecrawl » plus bas) |
 
 (Un 7e secret, `SUPERVISEUR_PAT`, se crée à l'étape 6 bis ci-dessous.)
 
@@ -221,6 +221,27 @@ en plus, pas un rouage.
   mémo. Si le quota mord quand même sur ton usage perso, baisse d'abord les
   `--max-turns`, réduis les passes de récolte (retire un ou plusieurs crons `09/13/17`),
   ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "30 4 */2 * *"`).
+- **Budget Firecrawl** : c'est la SEULE dépense variable du système, et la seule
+  ressource qui ne se recharge pas toute seule. Elle est tenue par un guichet
+  unique, `scripts/fc.sh` : aucun agent n'appelle l'API directement.
+  - **Le plafond est global au jour, pas par run** — c'est le point. Le pipeline
+    lance 8 à 12 processus d'agents indépendants par jour (4 passes de récolte +
+    le jugement, doublés les lendemains de jour rouge) : un budget « par agent »
+    s'y multiplie mécaniquement par 10. Le compteur partagé vit en base
+    (`firecrawl_appels`), et `fc.sh` refuse l'appel au-delà.
+  - **Réglages sans toucher au code** : Settings → Secrets and variables →
+    Actions → **Variables** : `FIRECRAWL_BUDGET_JOUR` (défaut 10 crédits/jour,
+    tous agents confondus), `FIRECRAWL_CAP_RUN` (défaut 6, par processus),
+    `FIRECRAWL_RESERVE` (défaut 40 : sous ce solde, seul `/scrape` d'une preuve
+    bloquée passe encore). Le défaut de 10/jour est calibré pour faire durer un
+    reliquat de free tier plusieurs mois, pas pour maximiser la découverte —
+    monte-le en connaissance de cause si tu passes sur un plan payant.
+  - **Un refus n'est pas une panne** : `fc.sh` sort en code 3, l'agent retombe sur
+    WebSearch/WebFetch/curl (gratuits, illimités) et finit sa mission. Aucune
+    journée ne s'arrête faute de crédits.
+  - **Où lire la dépense** : le mémo du matin en donne une ligne (crédits du jour
+    par agent et par endpoint, refus, solde restant) ; en base,
+    `select * from v_firecrawl_jour;`.
 - **Horaire** : crons en UTC. `30 4 * * *` = 06:30 Paris l'été, 05:30 l'hiver.
 - **`--dangerously-skip-permissions`** : requis pour tourner sans surveillance. Les
   agents n'ont ni secrets en clair dans le repo, ni droit de push (permissions

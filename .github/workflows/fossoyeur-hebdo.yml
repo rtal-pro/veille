@@ -17,6 +17,10 @@ concurrency:
 env:
   SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_AGENT }}
   FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+  FIRECRAWL_BUDGET_JOUR: ${{ vars.FIRECRAWL_BUDGET_JOUR || '10' }}
+  FIRECRAWL_CAP_RUN: ${{ vars.FIRECRAWL_CAP_RUN || '6' }}
+  FIRECRAWL_RESERVE: ${{ vars.FIRECRAWL_RESERVE || '40' }}
+  FC_AGENT: fossoyeur
 
 jobs:
   fossoyeur:

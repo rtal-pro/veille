@@ -9,22 +9,34 @@ ne validera rien en cours de run.
 
 - Base Postgres (Supabase) : `psql "$SUPABASE_DB_URL" -c "..."` (ou heredoc pour le multi-lignes).
   Échappe les apostrophes SQL en les doublant (`''`).
-- Web : outils WebSearch/WebFetch, et `curl` en Bash. **Firecrawl (`$FIRECRAWL_API_KEY`
-  défini) est ton moteur de découverte LARGE — pas un simple débloqueur de 2-3 sites.**
-  Trois usages, pilotés par REQUÊTE (jamais une liste de sources figée) :
-  - **Découvrir large** — `/v2/search` cherche tout le web FR et rend le contenu des
-    résultats. Réflexe `location:"France"` (le WebSearch de base ratisse surtout US) ;
-    `tbs:"qdr:w"` pour du frais. Coût : 2 crédits / 10 résultats (liens), +1/page si scrape.
-    `curl -s -X POST https://api.firecrawl.dev/v2/search -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"query":"...","limit":10,"location":"France","tbs":"qdr:w"}'`
-  - **Élargir un gisement** — `/v2/map` rend TOUTES les URLs d'un domaine (filtre `search`),
-    **1 crédit** quel que soit le nombre. Un forum/blog prometteur → des centaines de fils.
-    `curl -s -X POST https://api.firecrawl.dev/v2/map -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"url":"https://...","search":"mot-clé"}'`
-  - **Lire une page** — `/v2/scrape` (1 URL → markdown propre, 1 crédit), à réserver aux
-    pages qui valent le coup et aux sites à anti-bot.
-    `curl -s -X POST https://api.firecrawl.dev/v2/scrape -H "Authorization: Bearer $FIRECRAWL_API_KEY" -H "Content-Type: application/json" -d '{"url":"..."}'`
-  - **Règle d'or crédits (free tier, ~33/jour)** : la largeur vient de `/search` (liens
-    d'abord) + `/map` (1 cr) ; `/scrape` avec parcimonie. Crédits épuisés → l'API renvoie
-    une erreur : retombe sur WebFetch/curl gratuit, ne bloque jamais.
+- Web : outils WebSearch/WebFetch, et `curl` en Bash. **Ce sont tes moyens par
+  défaut, ils sont gratuits et illimités : commence TOUJOURS par eux.**
+- **Firecrawl — stock payant, comptabilisé, plafonné.** Le stock de crédits est
+  fini et partagé par les 8 à 12 agents qui tournent chaque jour. Il ne se
+  recharge pas parce que tu as bien travaillé. Trois règles, non négociables :
+  - **Tout passe par `scripts/fc.sh`. Un `curl` direct sur `api.firecrawl.dev`
+    est une infraction** — il ne consomme pas moins de crédits, il les consomme
+    sans trace et hors plafond. Le script journalise chaque appel et son coût
+    réel dans `firecrawl_appels`, et refuse au-delà du budget du jour.
+  - **`scripts/fc.sh solde` AVANT de bâtir ta stratégie de recherche**, pas
+    après. Ce qu'il affiche (solde, consommé du jour tous agents confondus,
+    reste) décide si Firecrawl fait partie de ton plan ou pas du tout.
+  - **Un refus (`exit 3`) n'est pas une panne** : le plafond est atteint, un
+    autre agent est passé avant toi. Tu retombes sur WebSearch/WebFetch/curl et
+    tu finis ta mission. Ne réessaie pas, ne contourne pas, ne le journalise pas
+    comme un incident.
+  Ordre de rentabilité du crédit — dépense dans cet ordre, jamais l'inverse :
+  1. **Débloquer** une page à anti-bot qui porte une preuve DÉJÀ identifiée —
+     `scripts/fc.sh scrape '{"url":"https://..."}'` (1 crédit). C'est le seul
+     usage qu'aucun outil gratuit ne remplace, et il est protégé par une réserve.
+  2. **Vider un gisement déjà qualifié** — `scripts/fc.sh map '{"url":"https://...","search":"mot-clé"}'`
+     (1 crédit, quel que soit le nombre d'URLs rendues).
+  3. **Découvrir large** — `scripts/fc.sh search '{"query":"...","limit":10,"location":"France","tbs":"qdr:w"}'`
+     (2 crédits par tranche de 10 résultats, +1 par page si tu ajoutes
+     `scrapeOptions`). **Uniquement si WebSearch a déjà échoué sur le même
+     angle** : c'est le réflexe « Firecrawl d'abord » qui a vidé la moitié du
+     stock en trois jours, pour un rendement en leads indiscernable de celui de
+     WebSearch. La largeur ne s'achète pas, elle se cherche.
 - Interdit : `git commit`, `git push`, modifier les fichiers du repo, toucher aux secrets.
   Seule exception : l'agent SUPERVISEUR peut créer une branche, ouvrir une Pull Request
   et la merger lui-même APRÈS succès de `scripts/valider.sh` — jamais de push direct sur
@@ -147,6 +159,17 @@ secteurs dans sa sélection. Deux jours rouges dans la même semaine = diagnosti
 prioritaire du Superviseur. Ce protocole élargit la CHASSE ; il n'assouplit JAMAIS
 les critères de verdict — fabriquer un GO pour éviter un jour rouge est la faute
 maximale du système, détectée au contrôle qualité et attribuée à son auteur.
+
+**Le doublement porte sur l'EFFORT, jamais sur le budget Firecrawl** : le plafond
+de crédits du jour ne bouge pas d'un jour rouge (le stock, lui, ne double pas).
+Et il porte sur la QUALIFICATION avant le volume. Constat du 2026-08-28 : cinq
+dossiers instruits, cinq écartés à la jambe 1, tous sur un `trou_fr` réfuté par un
+concurrent trouvable en une recherche — des trous apparents fabriqués par une
+recherche insuffisante en amont, pas par un manque de leads. Récolter deux fois
+plus de leads non qualifiés produit deux fois plus de morts à la jambe 1, un jour
+rouge de plus, et une facture de crédits. Doubler, c'est donc d'abord : tester le
+trou FR AVANT d'insérer (kill immédiat si le marché est servi), puis seulement
+élargir le nombre d'angles.
 
 ## Fin de run obligatoire (même si stérile)
 
