@@ -55,10 +55,11 @@ Compile en Markdown (en français) :
 - **Autopsies du jour** : les tués, en une ligne chacun (nom → tueur → condition de résurrection).
 - **Budget Firecrawl** : une ligne, toujours présente, jamais plus longue —
   `SELECT agent, endpoint, appels, refuses, credits FROM v_firecrawl_jour WHERE date_run=CURRENT_DATE;`
-  plus le solde restant (`scripts/fc.sh solde`). Format : « Firecrawl : N crédits
-  (kiosque N /search, instructeur N /scrape…), M refus plafond, solde S ». C'est la
-  seule dépense réelle du système : elle se lit tous les matins, pas une fois le
-  stock vidé.
+  plus le solde restant (`scripts/fc.sh solde`) et l'économie du cache
+  (`SELECT sum(credits_economises) FROM v_firecrawl_cache;`). Format : « Firecrawl :
+  N crédits (kiosque N /search, instructeur N /scrape…), M refus plafond, C appels
+  servis par le cache, solde S ». C'est la seule dépense réelle du système : elle se
+  lit tous les matins, pas une fois le stock vidé.
 - **Découvertes** : sources neuves prometteuses, secteur NAF foré, réserve levée/confirmée.
 - **Si zéro GO (rattrapage compris)** : c'est un **JOUR ROUGE** — un incident, pas une
   fatalité ni une routine. Dis-le sans détour en tête, liste ce qui a tué chaque

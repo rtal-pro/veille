@@ -21,6 +21,13 @@ ne validera rien en cours de run.
   - **`scripts/fc.sh solde` AVANT de bâtir ta stratégie de recherche**, pas
     après. Ce qu'il affiche (solde, consommé du jour tous agents confondus,
     reste) décide si Firecrawl fait partie de ton plan ou pas du tout.
+  - **Une page est payée UNE fois.** `fc.sh` sert d'abord le cache
+    (`firecrawl_cache`) : un contenu déjà récupéré ressort à 0 crédit, sans
+    entamer le budget du jour, et reste lisible même si la clé est absente ou le
+    stock vide. Durée de vie : 3 jours pour `/search`, 14 pour `/map` et
+    `/scrape` — c'est déjà ta fenêtre de fraîcheur, ne la contourne pas par
+    réflexe. Besoin réellement frais et justifiable : `FC_NOCACHE=1 scripts/fc.sh …`,
+    et dis pourquoi dans ton journal.
   - **Un refus (`exit 3`) n'est pas une panne** : le plafond est atteint, un
     autre agent est passé avant toi. Tu retombes sur WebSearch/WebFetch/curl et
     tu finis ta mission. Ne réessaie pas, ne contourne pas, ne le journalise pas

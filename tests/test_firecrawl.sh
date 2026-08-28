@@ -58,9 +58,11 @@ done
 export FIRECRAWL_API="http://127.0.0.1:$PORT"
 export FIRECRAWL_API_KEY="fake-key"
 export FC_AGENT="test"
+export FC_CACHE_DIR="$TMP/cache"
 unset SUPABASE_DB_URL 2>/dev/null || true
 
 fc() { FC_COMPTEUR="$TMP/compteur" bash scripts/fc.sh "$@" 2>"$TMP/err"; }
+vide_cache() { rm -rf "$TMP/cache"; }
 
 cas() { # nom code_attendu commande...
   local nom="$1" want="$2"; shift 2
@@ -70,11 +72,13 @@ cas() { # nom code_attendu commande...
 }
 
 echo "— garde-fous d'usage —"
+vide_cache
 FIRECRAWL_API_KEY="" cas "clé absente → 4" 4 fc scrape '{"url":"https://x.tld"}'
 cas "endpoint inconnu → 2" 2 fc crawl '{"url":"https://x.tld"}'
 cas "JSON invalide → 2" 2 fc scrape '{url:'
 
 echo "— appel nominal et coût mesuré —"
+vide_cache
 rm -f "$TMP/compteur"
 cas "scrape autorisé → 0" 0 fc scrape '{"url":"https://x.tld"}'
 grep -q '"success"' <<<"$(FC_COMPTEUR="$TMP/compteur2" bash scripts/fc.sh scrape '{"url":"https://x.tld"}' 2>/dev/null)" \
@@ -84,12 +88,17 @@ grep -q '"success"' <<<"$(FC_COMPTEUR="$TMP/compteur2" bash scripts/fc.sh scrape
 [ "$(cat "$TMP/compteur")" = "1" ] || ko "compteur de run = $(cat "$TMP/compteur") (attendu 1)"
 
 echo "— plafond de run —"
+vide_cache
 rm -f "$TMP/compteur"
-FIRECRAWL_CAP_RUN=1 fc scrape '{"url":"https://x.tld"}' >/dev/null
-FIRECRAWL_CAP_RUN=1 cas "2e appel au-delà du cap → 3" 3 fc scrape '{"url":"https://x.tld"}'
+# URLs distinctes à dessein : deux appels identiques seraient servis par le
+# cache à 0 crédit et ne franchiraient jamais le plafond — comportement voulu,
+# mais ce n'est pas ce que ce cas mesure.
+FIRECRAWL_CAP_RUN=1 fc scrape '{"url":"https://a.tld"}' >/dev/null
+FIRECRAWL_CAP_RUN=1 cas "2e appel au-delà du cap → 3" 3 fc scrape '{"url":"https://b.tld"}'
 [ "$(cat "$TMP/compteur")" = "1" ] || ko "un appel refusé a été facturé ($(cat "$TMP/compteur"))"
 
 echo "— réserve de déblocage —"
+vide_cache
 rm -f "$TMP/compteur"
 # Solde 500, réserve 499 : /search entamerait la réserve, /scrape doit passer —
 # c'est la priorité constitutionnelle (débloquer une preuve > découvrir large).
@@ -97,13 +106,32 @@ FIRECRAWL_RESERVE=499 cas "search sous la réserve → 3" 3 fc search '{"query":
 FIRECRAWL_RESERVE=499 cas "scrape sous la réserve → 0" 0 fc scrape '{"url":"https://x.tld"}'
 
 echo "— barème /search (borne haute d'autorisation) —"
+vide_cache
 rm -f "$TMP/compteur"
 # limit 10 sans scrapeOptions = 2 crédits ; un cap de 1 doit donc refuser AVANT
 # l'appel, sinon le plafond serait franchi puis constaté après coup.
 FIRECRAWL_CAP_RUN=1 cas "search limit=10 refusé sous cap=1 → 3" 3 fc search '{"query":"x","limit":10}'
 [ ! -s "$TMP/compteur" ] || ko "un crédit a été consommé malgré le refus a priori"
 
+echo "— cache : une page payée une fois —"
+vide_cache; rm -f "$TMP/compteur"
+cas "1er appel (paie) → 0" 0 fc scrape '{"url":"https://cache.tld"}'
+[ "$(cat "$TMP/compteur")" = "1" ] || ko "1er appel non facturé"
+cas "2e appel identique (cache) → 0" 0 fc scrape '{"url":"https://cache.tld"}'
+[ "$(cat "$TMP/compteur")" = "1" ] || ko "le 2e appel a été facturé ($(cat "$TMP/compteur")) — le cache n'a pas servi"
+grep -q "cache" "$TMP/err" || ko "le 2e appel n'annonce pas le cache"
+# Ordre des clés du payload indifférent : sinon le cache ne resservirait jamais.
+cas "payload réordonné → cache" 0 fc scrape '{"url":"https://cache.tld"}'
+[ "$(cat "$TMP/compteur")" = "1" ] || ko "un payload équivalent a manqué le cache"
+# Une réponse déjà payée reste lisible clé absente ou révoquée (cas du 26/08).
+FIRECRAWL_API_KEY="" cas "cache servi sans clé API → 0" 0 fc scrape '{"url":"https://cache.tld"}'
+# Le cache ne doit pas non plus être bloqué par le plafond : c'est déjà payé.
+FIRECRAWL_CAP_RUN=0 cas "cache servi plafond atteint → 0" 0 fc scrape '{"url":"https://cache.tld"}'
+FC_NOCACHE=1 cas "FC_NOCACHE force un appel frais → 0" 0 fc scrape '{"url":"https://cache.tld"}'
+[ "$(cat "$TMP/compteur")" = "2" ] || ko "FC_NOCACHE n'a pas repayé ($(cat "$TMP/compteur"))"
+
 echo "— rapport de solde —"
+vide_cache
 cas "solde → 0" 0 fc solde
 grep -q "solde live" "$TMP/err" || ko "fc.sh solde n'affiche pas le solde"
 

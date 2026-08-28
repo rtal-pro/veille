@@ -239,9 +239,16 @@ en plus, pas un rouage.
   - **Un refus n'est pas une panne** : `fc.sh` sort en code 3, l'agent retombe sur
     WebSearch/WebFetch/curl (gratuits, illimités) et finit sa mission. Aucune
     journée ne s'arrête faute de crédits.
+  - **Une page est payée une fois** : `fc.sh` garde le contenu brut de chaque
+    réponse (`firecrawl_cache`) et le ressert à 0 crédit — 3 jours pour `/search`,
+    14 pour `/map` et `/scrape`. Avant ça, le contenu était lu, résumé en deux
+    lignes et jeté avec le runner, donc racheté au passage suivant (Légifrance a
+    été tenté 3 fois en 3 jours par 3 agents). Le cache est consulté AVANT le
+    plafond : une réponse déjà payée reste disponible budget épuisé, et même clé
+    absente. Purge des entrées périmées à chaque passage du job `migrations`.
   - **Où lire la dépense** : le mémo du matin en donne une ligne (crédits du jour
-    par agent et par endpoint, refus, solde restant) ; en base,
-    `select * from v_firecrawl_jour;`.
+    par agent et par endpoint, refus, appels servis par le cache, solde restant) ;
+    en base, `select * from v_firecrawl_jour;` et `select * from v_firecrawl_cache;`.
 - **Horaire** : crons en UTC. `30 4 * * *` = 06:30 Paris l'été, 05:30 l'hiver.
 - **`--dangerously-skip-permissions`** : requis pour tourner sans surveillance. Les
   agents n'ont ni secrets en clair dans le repo, ni droit de push (permissions
