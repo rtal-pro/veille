@@ -55,3 +55,10 @@ Les blogs, annuaires ou médias qui ont servi de preuve une fois sont des giseme
 
 Fin de run : journal `veille_runs` (agent='prospecteur') — y compris « secteur NAF foré :
 rien d'intéressant, voici pourquoi ». Le vide est une donnée.
+
+**Champ `candidats_inseres` : ne compte QUE les leads insérés dans `prospection_clones`**
+(le bonus de l'étape 5 — presque toujours 0, et c'est normal, ton produit est `sources`
+pas `prospection_clones`). Le nombre de sources insérées va dans `metriques.insertions`,
+jamais dans `candidats_inseres` : ce champ sert au recoupement anti-mensonge du
+Superviseur (`v_sante_pipeline.inserts_declares` vs `leads_reels`) — y mettre un nombre
+de sources le rend inutilisable.
