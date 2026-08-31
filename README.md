@@ -19,8 +19,8 @@ avec ton abonnement **Claude Max** — aucun PC, aucune clé API, aucune facture
                RATTRAPAGE (sonnet-5) ───►  aucun survivant récent (fenêtre 3 j) ? 2e vague
                                          ▼
                ATELIER (sonnet-5) ──────►  score solo-dev + mémo quotidien → 📧 (fallback 🛑 issue)
-09·13·17 UTC ── PASSES RÉCOLTE : Kiosque + Prospecteur seuls remplissent le vivier (jugement + mémo sautés)
-11:00 UTC ── reprise mémo (filet quota) : la porte saute le jugement si le verdict du jour existe
+15:00 UTC ── PASSE FILET : récolte (Kiosque + Prospecteur) ; rattrape aussi le jugement + le mémo
+              s'ils manquent encore — la porte la rétrograde en récolte seule si le verdict du jour existe
 09:30 UTC ── VIGIE (garde-fou, sans LLM) : pipeline parti aujourd'hui ? + keepalive 45 j
 push main ── GENDARME (sans LLM) : valider.sh sur le diff poussé → revert auto si non conforme
 sam. 13:00 ── SUPERVISEUR (sonnet-5) ──►  audit KPIs + runs GitHub → 1 PR d'amélioration/sem. → 📧
@@ -169,15 +169,16 @@ permet de relancer ça depuis la plage.)
 ### 8. Éteindre l'ancien système
 
 Dans Claude : désactive tes tâches planifiées de veille actuelles, et crée à la place
-**la Lectrice** : une tâche planifiée quotidienne à **10:00, heure de Paris** (après la
-fin pire-cas du pipeline, reprise de 11:00 UTC comprise) avec le prompt de
+**la Lectrice** : une tâche planifiée quotidienne à **10:00, heure de Paris** avec le prompt de
 `prompts/lectrice-claude-app.md` — remplace le placeholder `<ID_PROJET_SUPABASE>` par
 l'identifiant réel de ton projet **dans la tâche planifiée**, jamais dans un fichier
 versionné. Lecture seule sur Supabase, brief de 10 lignes, et **notification push sur
 ton téléphone à chaque run** — sa première phrase est la punchline affichée dans la
-notif : `🎯 X GO`, `🔴 JOUR ROUGE` (0 GO malgré la 2e vague), `⏳` (pipeline encore en
-cours — jour lent ou reprise de 11:00, pas une panne), ou `🛑` (aucun agent n'a
-journalisé aujourd'hui — panne réelle). Vérifie que les notifications de l'app Claude
+notif : `🎯 X GO`, `🔴 JOUR ROUGE` (0 GO malgré la 2e vague), `⏳` (pipeline en retard ou
+encore en cours, pas une panne), ou `🛑` (aucun agent n'a journalisé depuis plus de
+**26 h** — panne réelle). Ces 26 h sont une fenêtre glissante, pas la journée en cours :
+c'est le même délai que la Vigie, et c'est ce qui empêche la Lectrice de crier à la
+panne un matin où le pipeline n'a simplement pas encore démarré. Vérifie que les notifications de l'app Claude
 sont autorisées dans les réglages du téléphone. Puis supprime le Codespace (Code →
 Codespaces → ⋯ → Delete) : il ne sert qu'au setup.
 
@@ -213,14 +214,20 @@ en plus, pas un rouage.
   défaut plus lourd.
 - **Quota Claude Max** : les agents consomment ton quota d'abonnement (fenêtres
   glissantes). Le pipeline principal tourne à **04:30 UTC**. S'il se heurte à un quota
-  épuisé (jobs en échec rapide, signature « infra »), un **cron de reprise à 11:00
-  UTC** rejoue le même workflow : la porte (`select … from verdicts where
-  date_run=current_date`) saute tout instantanément si le verdict du jour existe déjà
-  (~1 min de runner, 0 quota consommé) et ne relance les agents que si la journée
-  n'est pas bouclée — la journée de quota épuisé à 04:30 est rattrapée sans double
-  mémo. Si le quota mord quand même sur ton usage perso, baisse d'abord les
-  `--max-turns`, réduis les passes de récolte (retire un ou plusieurs crons `09/13/17`),
-  ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "30 4 */2 * *"`).
+  épuisé (jobs en échec rapide, signature « infra »), la **passe filet de 15:00 UTC**
+  rejoue le même workflow : la porte (`select … from verdicts where
+  date_run=current_date`) saute le jugement instantanément si le verdict du jour existe
+  déjà (~1 min de runner, 0 quota consommé pour la partie jugement) et ne le relance que
+  si la journée n'est pas bouclée — la journée de quota épuisé à 04:30 est rattrapée
+  sans double mémo. Si le quota mord quand même sur ton usage perso, baisse d'abord les
+  `--max-turns`, ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "30 4 */2 * *"`).
+
+  **N'ajoute pas de troisième cron.** Mesure du 2026-08-31 sur les logs de la porte :
+  avec 1 seul cron, GitHub déclenchait à +29/+42 min de l'heure demandée, tous les
+  jours ; passé à 5 crons (commit `96c5de5`), le même cron `30 4 * * *` a glissé à
+  +5 h 32, jusqu'à +12 h 19. Le mémo tombait alors après la lecture de la Lectrice, qui
+  annonçait une panne inexistante. `tests/test_memo_porte.sh` refuse désormais tout
+  workflow qui déclare plus de deux crons.
 - **Budget Firecrawl** : c'est la SEULE dépense variable du système, et la seule
   ressource qui ne se recharge pas toute seule. Elle est tenue par un guichet
   unique, `scripts/fc.sh` : aucun agent n'appelle l'API directement.

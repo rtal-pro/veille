@@ -2,11 +2,16 @@ name: Veille quotidienne
 
 on:
   schedule:
+    # Cadence 2 passes, et pas davantage. Mesuré le 2026-08-31 sur les logs de
+    # la porte : passer de 1 à 5 crons (commit 96c5de5) a fait glisser le retard
+    # de déclenchement du cron mémo de +35 min à +5 h 32 (jusqu'à +12 h 19 le
+    # 28/08). Le mémo tombait alors APRÈS la lecture de la Lectrice (08:00 UTC),
+    # qui criait « Pipeline muet » sur un pipeline simplement en retard.
     - cron: "30 4 * * *"    # passe MÉMO — 04:30 UTC : récolte + jugement + email
-    - cron: "0 9 * * *"     # récolte seule — 09:00 UTC
-    - cron: "0 13 * * *"    # récolte seule — 13:00 UTC
-    - cron: "0 17 * * *"    # récolte seule — 17:00 UTC
-    - cron: "0 11 * * *"    # reprise mémo (filet quota) ; sautée si le jour est fait
+    # Filet : récolte l'après-midi, ET rattrape le mémo s'il manque encore. Pas
+    # besoin de logique dédiée — la porte la rétrograde en récolte seule via son
+    # garde deja_fait dès que le mémo du jour existe.
+    - cron: "0 15 * * *"
   workflow_dispatch:
 
 permissions:
@@ -128,7 +133,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent KIOSQUE. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/kiosque.md, et exécute intégralement ta mission du jour."
-          claude_args: "--model claude-sonnet-5 --max-turns 100 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 140 --dangerously-skip-permissions"
 
   prospecteur:
     needs: [porte]
