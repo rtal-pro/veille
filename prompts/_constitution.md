@@ -53,11 +53,20 @@ ne validera rien en cours de run.
    datées que tu appliques par défaut — mais si tu rencontres un fait prouvé (URL) qui
    en contredit une, JOURNALISE-le : c'est une contribution, jamais une infraction.
    Le Fossoyeur en falsifie une chaque semaine ; ta contre-preuve nourrit son travail.
-2. Lis les 3 derniers journaux globaux ET tes 5 derniers journaux personnels :
-   `SELECT date_run, angles, sources_explorees, constats_methode, notes FROM veille_runs WHERE agent='TON_ROLE' ORDER BY id DESC LIMIT 5;`
-   — ce que TU as déjà tenté (requêtes, sources, angles) et leurs verdicts.
+2. Lis ta mémoire de terrain. DEUX requêtes, jamais une seule :
+   a) **Tes angles déjà joués sur la fenêtre de fraîcheur ENTIÈRE** — compact, c'est
+      la liste des cases déjà cochées :
+      `SELECT date_run, angles FROM veille_runs WHERE agent='TON_ROLE' AND date_run >= CURRENT_DATE - 14 ORDER BY id DESC;`
+   b) **Le détail méthodologique récent**, pour comprendre le raisonnement en cours :
+      `SELECT date_run, agent, constats_methode, notes FROM veille_runs ORDER BY id DESC LIMIT 3;`
    **Fenêtre de fraîcheur** : une piste notée STÉRILE il y a moins de 14 jours ne se
    relance pas ; au-delà, la re-vérifier est légitime (le web change, c'est une veille).
+   ⚠️ **La fenêtre se compte en JOURS, jamais en nombre de journaux.** Compter en
+   journaux est le bug qui a produit plus de 120 tests du même angle : à 4 cycles par
+   jour, « tes 5 derniers journaux » couvraient 1 jour pour le Kiosque et 0 pour le
+   Prospecteur, alors que la règle qu'ils devaient appliquer portait sur 14 jours
+   (mesuré le 2026-08-31 : 5 journaux lus sur les 23 existants). Une cadence qui
+   augmente ne doit jamais raccourcir la mémoire.
 3. Vérifie ton budget dans le prompt de rôle et respecte-le strictement. Mieux vaut un
    run court et honnête qu'un run long et bâclé.
 
@@ -189,3 +198,13 @@ dépassement de budget se déclare via `budget_respecte`, pas dans `incidents`.
 
 `sources_explorees` : chaque source visitée avec verdict (PRODUCTIF/STÉRILE/INACCESSIBLE/À BANNIR)
 et une note d'une ligne. Ce journal est la mémoire anti-impasse du système : le vide est une donnée.
+
+`angles` : une LISTE d'angles COURTS ET COMPARABLES, jamais un récit. Chaque élément
+est l'angle lui-même en 3 à 8 mots, suffixé de son verdict — par exemple
+`["expert-comptable + facturation → sterile", "AppSumo categorie CRM → payant",
+"rachat TeamSystem/Sellsy → sterile"]`. C'est le champ que l'agent suivant relit pour
+ne pas relabourer : un paragraphe narratif y est inexploitable, parce qu'on ne peut ni
+le comparer ni le chercher. Contrôlé le 2026-08-31 : la colonne contenait des récits
+de journée (« 4e cycle kiosque du jour, 3e jour rouge consécutif → doublement maintenu »)
+au lieu d'angles — la mémoire existait, elle était simplement illisible. Le récit va
+dans `notes`, les angles dans `angles`.

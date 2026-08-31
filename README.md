@@ -29,10 +29,21 @@ dim. 06:00 ── FOSSOYEUR (sonnet-5) ────►  résurrections, scoring 
 ```
 
 Mémoire : ta base Supabase existante (`prospection_clones`, `veille_runs`, `analyses_go`)
-+ les tables `sources`, `carte_naf`, `reserves`, `doctrine`, `verdicts`, `audits`,
-`modifications`, `migrations_appliquees`, gérées par `sql/000_legacy.sql` →
-`sql/006_coherence.sql`. Dédup gratuite par pg_trgm + full-text français (pas
-d'embeddings payants ; pgvector reste prêt si besoin).
++ les tables `sources`, `carte_naf`, `carte_produits`, `reserves`, `doctrine`,
+`verdicts`, `audits`, `modifications`, `firecrawl_appels`, `migrations_appliquees`,
+gérées par `sql/000_legacy.sql` → `sql/008_carte_produits.sql`. Dédup gratuite par
+pg_trgm + full-text français (pas d'embeddings payants ; pgvector reste prêt si besoin).
+
+**Les deux cartes.** Le système chasse sur deux terrains, et chacun a sa carte, pour la
+même raison : un agent n'est méthodique que sur un terrain énumérable — sinon il
+relaboure. `carte_naf` (732 sous-classes INSEE) porte la chasse au MÉTIER : quel secteur
+français est mal servi ? `carte_produits` porte la chasse au CLONE : quel produit a déjà
+des clients qui paient ailleurs (AppSumo, G2, Capterra, Indie Hackers, marketplaces de
+rachat) et manque en France ? Les deux fonctionnent en cases à cocher
+`vierge`/`exploree`/`sterile`. La seconde a été ajoutée le 31/08/2026 : elle n'existait
+pas, et son absence se mesurait — sur 555 sources en base, 0 venaient d'AppSumo ou de
+G2, et le Kiosque rapportait avoir testé plus de 120 fois le même angle « métier
+nommable + logiciel ». `SELECT * FROM v_carte_produits;` dit où en est cette chasse.
 
 ## Installation (~20 min, depuis un navigateur — tablette/téléphone OK)
 

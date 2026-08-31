@@ -4,11 +4,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 missing=0
 need() { grep -qi -- "$1" sql/*.sql || { echo "MISSING in sql/: $1"; missing=1; }; }
-for ident in prospection_clones veille_runs analyses_go sources carte_naf reserves \
+for ident in prospection_clones veille_runs analyses_go sources carte_naf carte_produits reserves \
              doctrine verdicts audits modifications migrations_appliquees \
              statut_pipeline rapport_attaque score_atelier condition_resurrection \
              statut_jambes dont_go doublons_evites metriques memoire \
-             v_sante_pipeline sante_agents derniere_revision; do
+             v_sante_pipeline v_carte_produits sante_agents derniere_revision; do
   need "$ident"
 done
 # Workflow/prompt contracts
