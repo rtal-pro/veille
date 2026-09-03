@@ -25,14 +25,35 @@ demande, c'est chercher un endroit où personne ne vend de pain en espérant que
 y ont faim — d'où les 3 à 6 concurrents déjà installés que tes propres journaux
 rapportent à chaque tentative, et 4 cycles consécutifs à zéro lead le 30/08.
 
-Commence ton run par UNE tranche de carte :
-`SELECT id, terrain, tranche, url, notes FROM carte_produits WHERE statut='vierge' ORDER BY random() LIMIT 1;`
+Commence ton run par TES CINQ tranches de carte :
+`SELECT id, terrain, tranche, url, notes FROM carte_produits WHERE statut='vierge' ORDER BY random() LIMIT 5;`
+
+Cinq, et non une : mesure du 2026-09-03 sur `carte_produits.date_exploration`, tu fermes
+déjà 6 à 8 tranches par jour hors jour d'amorçage, soit 3-4 par run — le plafond à une
+seule case ne décrivait pas ton débit réel, il le sous-déclarait. Si le temps manque,
+ferme-en moins et dis-le en note : une tranche bien dépouillée vaut mieux que cinq
+survolées, et une tranche laissée `vierge` sera reprise, ce qui est sans dommage.
 
 - Tranche `_cartographier les categories` : va LIRE sur le site la liste réelle de ses
-  catégories, crée une tranche par catégorie
+  catégories avec **`scripts/fc.sh map`**, puis crée une tranche par catégorie
   (`INSERT INTO carte_produits (terrain, tranche, url) VALUES (...)`), puis passe cette
   tranche d'amorçage en `exploree`. Ne récite JAMAIS les catégories de mémoire — même
   discipline que la nomenclature NAF du Prospecteur.
+
+  ```bash
+  scripts/fc.sh map '{"url":"https://www.capterra.com/categories/","search":"software","limit":2000}'
+  ```
+  `/map` coûte **1 crédit quel que soit le nombre d'URLs rendues** (doc Firecrawl :
+  « irrespective of the number of URLs returned ») : c'est l'usage le plus rentable du
+  stock, un catalogue entier pour un crédit. Deux pièges. **Le `limit` vaut 100 par
+  défaut** — sans `limit` explicite tu crois avoir tout vu alors que tu as vu cent URLs.
+  Et `search` filtre : deux `/map` avec des filtres différents rendent deux récoltes
+  différentes du même site, pour 1 crédit chacune.
+  Pourquoi cette consigne existe : le 2026-08-31, l'amorçage a été fait à WebFetch, qui
+  rend une page tronquée — d'où 10 tranches Capterra là où le catalogue en contient bien
+  plus, et une carte épuisée en trois jours. Le budget n'a jamais été la contrainte :
+  mesure du 2026-09-03, solde 456 crédits, 10 consommés en 7 jours sur 70 autorisés,
+  zéro refus budgétaire depuis la création du guichet.
 - Tranche normale : dépouille-la et retiens les produits dont la traction est LISIBLE
   publiquement (avis nombreux et datés, prix affiché, revenus publiés, MRR mis en
   vente). Pour chacun, teste le trou FR AVANT d'insérer.
@@ -40,6 +61,16 @@ Commence ton run par UNE tranche de carte :
   `UPDATE carte_produits SET statut='exploree', date_exploration=CURRENT_DATE, leads_trouves=N, notes='...' WHERE id=...;`
   (`sterile` si la tranche n'a rien donné — le vide est une donnée, et il évite qu'un
   autre cycle la reprenne.)
+
+- **Terrain à sec** (`SELECT * FROM v_carte_produits;` → `vierges = 0` sur un terrain qui
+  a déjà produit) : RÉAPPROVISIONNE-LE avant d'en ouvrir un neuf. Relance `fc.sh map` sur
+  le même site avec un `search` différent, et crée les tranches qui n'existent pas encore
+  (la contrainte `unique (terrain, tranche)` te protège des doublons : `ON CONFLICT DO
+  NOTHING`). Ouvrir un terrain neuf est le DERNIER recours, pas le premier.
+  Mesure du 2026-09-03, c'est la règle qui manquait : les 5 terrains d'origine étaient
+  épuisés dès le 01/09, et les 3 terrains ouverts en remplacement (`starterstory`,
+  `empireflippers`, `odoo_apps`) ont produit 29 tranches pour **0 lead**. Le seul terrain
+  qui ait jamais donné quelque chose est le seul qui ait été réapprovisionné : Capterra.
 
 Où en est cette chasse, tous terrains confondus : `SELECT * FROM v_carte_produits;`
 
@@ -54,8 +85,9 @@ Où en est cette chasse, tous terrains confondus : `SELECT * FROM v_carte_produi
    `enterree` avec `raison_statut` écrite.
 3. Mets à jour `derniere_visite = now()` sur chaque source visitée.
 
-**Priorités si le temps manque** (dans l'ordre de coupe inverse) : ta tranche de
-`carte_produits` d'abord — elle ne saute jamais, c'est ta chasse principale —, puis les
+**Priorités si le temps manque** (dans l'ordre de coupe inverse) : tes tranches de
+`carte_produits` d'abord — au moins une, elle ne saute jamais, c'est ta chasse
+principale ; les quatre autres se réduisent avant tout le reste —, puis les
 sources actives, puis la recherche libre, puis les candidates ; le sas PH/HN saute en
 premier. Mieux vaut une tranche bien dépouillée, 12 sources lues et 6 requêtes libres
 que tout survolé.
