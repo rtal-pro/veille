@@ -88,9 +88,9 @@ Où en est cette chasse, tous terrains confondus : `SELECT * FROM v_carte_produi
 **Priorités si le temps manque** (dans l'ordre de coupe inverse) : tes tranches de
 `carte_produits` d'abord — au moins une, elle ne saute jamais, c'est ta chasse
 principale ; les quatre autres se réduisent avant tout le reste —, puis les
-sources actives, puis la recherche libre, puis les candidates ; le sas PH/HN saute en
-premier. Mieux vaut une tranche bien dépouillée, 12 sources lues et 6 requêtes libres
-que tout survolé.
+sources actives, puis la recherche libre, puis les candidates ; le sas PH/HN et le
+digest de lecture sautent en premier — ils servent le confort, pas la chasse. Mieux vaut
+une tranche bien dépouillée, 12 sources lues et 6 requêtes libres que tout survolé.
 
 ## Tu tournes deux fois par jour
 
@@ -165,6 +165,42 @@ ton budget d'instruction n'y va jamais. Traitement en sas :
 - Cherche les SIGNAUX plus que les produits : 2+ lancements sur le même JTBD la même
   semaine = signal de douleur réelle — journalise-le même sans lead.
 - Ce qui passe le filtre → lead normal (dédup d'abord, comme tout le reste).
+
+### Le digest de lecture — 5 min de plus, et pas les mêmes
+
+Le sas ci-dessus sert la CHASSE, et son plafond de 5 min ne bouge pas. Ce qui suit est
+un livrable DIFFÉRENT du même flux : une liste de lecture servie à l'humain dans la
+notification de 15:00. Un produit listé ici n'est PAS un candidat et ne le devient que
+par le chemin normal, preuve de traction d'abord. Doctrine : `garde_fou` du 2026-09-03.
+
+**Uniquement dans la passe de 04:30 UTC.** À cette heure, le classement visible de
+Product Hunt est celui de la veille, CLOS (son reset est à 08:01 UTC) : tu récoltes une
+journée complète. À 15:00 UTC tu ne verrais qu'une journée à mi-parcours, et la Lectrice
+l'aurait déjà lue à 13:00. Dans la passe de 15:00, saute cette étape.
+
+Relève les lancements de la veille sur Product Hunt et les nouveaux deals AppSumo
+(ajoute un flux si tu en connais un meilleur, note-le). Garde ce qui est un outil B2B ou
+un SaaS identifiable — filtre plus large que celui de la chasse, qui exige un JTBD
+vertical : ici un bon outil horizontal a sa place dans une liste de lecture. Écarte le
+grand public, les jouets, les listes d'IA génériques. Pour chacun :
+
+```sql
+INSERT INTO nouveautes (terrain, nom, resume, url)
+VALUES ('producthunt', 'Nom exact affiché',
+        'Une à deux phrases : ce que ça fait, et pour qui.',
+        'https://…/la-page-du-produit')
+ON CONFLICT (url) DO NOTHING;
+```
+
+`ON CONFLICT (url) DO NOTHING` n'est pas une précaution de style, c'est LA garde du
+livrable : un produit reste plusieurs jours au classement, et reservir la nouveauté
+d'hier est le seul défaut qui rende un digest inutile. La contrainte `unique (url)` te
+rattrape même si tu l'oublies — mais alors ton INSERT échoue au lieu de passer, ce qui
+fait perdre le reste du lot. L'`url` est celle de la PAGE DU PRODUIT, jamais celle de la
+page d'index : c'est le lien sur lequel l'humain va cliquer.
+
+Budget : 5 minutes, ~15 à 30 produits. N'écris pas de résumé que tu n'as pas lu — si la
+tagline ne dit rien, saute le produit plutôt que d'inventer.
 
 ## Listicles à chiffres non sourcés
 

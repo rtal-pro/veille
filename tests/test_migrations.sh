@@ -43,14 +43,15 @@ assert_agent_role() {
     || { echo "FAIL: agent_veille SELECT doctrine errored ($label): $N"; exit 1; }
   [ "$N" -gt 0 ] 2>/dev/null \
     || { echo "FAIL: agent_veille sees $N rows on doctrine via SELECT — RLS policy not effective ($label)"; exit 1; }
-  # (b) Policy coverage: exactly the 12 tables carrying it — the 10 from 006
-  # step 6, plus firecrawl_appels from 007 and carte_produits from 008. Any
+  # (b) Policy coverage: exactly the 13 tables carrying it — the 10 from 006
+  # step 6, plus firecrawl_appels from 007, carte_produits from 008 and
+  # nouveautes from 009. Any
   # future table added to the agent's reach must bump this number, which is the
   # point: a table granted without a policy is silently default-denied, a policy
   # without a grant is permission-denied, and only this count catches either.
   NPOL=$(docker exec $C psql "$DB" -tAc \
     "select count(*) from pg_policies where schemaname='public' and policyname='agent_veille_all'")
-  [ "$NPOL" = "12" ] || { echo "FAIL: $NPOL agent_veille_all policies (want 12) ($label)"; exit 1; }
+  [ "$NPOL" = "13" ] || { echo "FAIL: $NPOL agent_veille_all policies (want 13) ($label)"; exit 1; }
   docker exec $C psql "$AGENT_DB" -v ON_ERROR_STOP=1 -tAc \
     "insert into sources (url) values ('http://test-agent-$label')" >/dev/null \
     || { echo "FAIL: agent_veille cannot INSERT sources ($label)"; exit 1; }
