@@ -133,7 +133,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent KIOSQUE. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/kiosque.md, et exécute intégralement ta mission du jour."
-          claude_args: "--model claude-sonnet-5 --max-turns 140 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 150 --dangerously-skip-permissions"
 
   prospecteur:
     needs: [porte]
@@ -147,7 +147,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent PROSPECTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/prospecteur.md, et exécute intégralement ta mission du jour."
-          claude_args: "--model claude-sonnet-5 --max-turns 70 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 90 --dangerously-skip-permissions"
 
   instructeur:
     needs: [kiosque, prospecteur, porte]
@@ -162,7 +162,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent INSTRUCTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/instructeur.md, et exécute intégralement ta mission du jour."
-          claude_args: "--model claude-opus-5 --max-turns 100 --dangerously-skip-permissions"
+          claude_args: "--model claude-opus-5 --max-turns 145 --dangerously-skip-permissions"
 
   contre-avocat:
     needs: [instructeur, porte]
@@ -177,7 +177,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent CONTRE-AVOCAT. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/contre-avocat.md, et exécute intégralement ta mission du jour."
-          claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 110 --dangerously-skip-permissions"
 
   rattrapage:
     needs: [contre-avocat, porte]
@@ -214,7 +214,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent RATTRAPAGE. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/rattrapage.md, et exécute intégralement ta mission (la porte du workflow a déjà vérifié qu'aucun survivant récent n'existe, sur une fenêtre de 3 jours)."
-          claude_args: "--model claude-sonnet-5 --max-turns 80 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 110 --dangerously-skip-permissions"
 
   atelier:
     needs: [preflight, porte, kiosque, prospecteur, instructeur, contre-avocat, rattrapage]
@@ -230,7 +230,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent ATELIER. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/atelier.md, et exécute intégralement ta mission du jour. Statuts des jobs amont — kiosque: ${{ needs.kiosque.result }}, prospecteur: ${{ needs.prospecteur.result }}, instructeur: ${{ needs.instructeur.result }}, contre-avocat: ${{ needs['contre-avocat'].result }}, rattrapage: ${{ needs.rattrapage.result }}. Si un job amont a échoué, dis-le en tête du mémo."
-          claude_args: "--model claude-sonnet-5 --max-turns 60 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 90 --dangerously-skip-permissions"
       - name: Préparer le mémo
         id: memo
         if: ${{ always() }}

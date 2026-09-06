@@ -56,7 +56,11 @@ survolées, et une tranche laissée `vierge` sera reprise, ce qui est sans domma
   zéro refus budgétaire depuis la création du guichet.
 - Tranche normale : dépouille-la et retiens les produits dont la traction est LISIBLE
   publiquement (avis nombreux et datés, prix affiché, revenus publiés, MRR mis en
-  vente). Pour chacun, teste le trou FR AVANT d'insérer.
+  vente). Pour chacun, **insère le lead avec son URL de traction — et n'instruis PAS
+  le trou FR**. Le trou est le métier de l'Instructeur, et un trou que tu tues chez toi
+  ne laisse aucune trace en base : ni `condition_resurrection`, ni matière pour le
+  Fossoyeur, ni dédup, ni mémoire (constitution, « interdit absolu : le kill en amont »).
+  Ton unique filtre est la traction : pas d'URL de preuve de paiement → pas d'insertion.
 - Referme toujours la case :
   `UPDATE carte_produits SET statut='exploree', date_exploration=CURRENT_DATE, leads_trouves=N, notes='...' WHERE id=...;`
   (`sterile` si la tranche n'a rien donné — le vide est une donnée, et il évite qu'un
@@ -127,12 +131,29 @@ seule laisse.
 
 - **Idées** → `prospection_clones` avec `statut_pipeline='lead'`, `date_run=CURRENT_DATE`,
   `clone_nom`, `saas_source`, `secteur`, `job_to_be_done` (net, une phrase), `pays_source`,
-  `source_id`. **Un lead issu de la chasse au clone porte sa preuve de traction dès
-  l'insertion** : `saas_source` (le produit copié, nommé), `preuve_traction_us` (ce qui
-  montre que des gens paient : nombre d'avis, prix affiché, revenus publiés) et
-  `source_traction_us` (l'URL qui le prouve). Sans cette URL, tu n'as pas un lead de
-  clone, tu as une intuition — et l'Instructeur la tuera à la jambe 1 comme les
-  précédentes.
+  **`source_id`** (l'id de la ligne `sources` d'où vient le lead — obligatoire, voir plus bas).
+  **Un lead porte sa preuve de traction dès l'insertion**, sans quoi il n'entre pas :
+  `saas_source` (le produit copié, nommé), `preuve_traction_us` (ce qui montre que des gens
+  paient : nombre d'avis, prix affiché, revenus publiés) et `source_traction_us` (l'URL qui
+  le prouve). Pose aussi la jambe dans `statut_jambes` dès l'insertion :
+
+  ```json
+  {"trou_fr": {"statut": "NON_INSTRUIT", "preuve_url": null},
+   "canal":   {"statut": "NON_INSTRUIT", "preuve_url": null},
+   "wtp":     {"statut": "NON_INSTRUIT", "preuve_url": null},
+   "traction":{"statut": "PROUVÉ", "preuve_url": "https://…"}}
+  ```
+
+  C'est la **jambe 0** de la constitution : la traction est le ticket d'entrée du vivier.
+  Sans cette URL, tu n'as pas un lead, tu as une intuition — et une intuition ne s'insère
+  pas. Avec elle, tu n'as plus rien d'autre à vérifier : **le trou FR ne te regarde pas.**
+
+- **`source_id` est obligatoire.** Contrôlé le 2026-09-06 : seuls 5 des 31 dossiers de
+  `prospection_clones` en portaient un, ce qui rend le scoring des sources par rendement
+  (Fossoyeur, chaque dimanche) purement inexploitable — le système ne peut pas savoir quels
+  gisements produisent. Si le lead vient d'une tranche `carte_produits` et non d'une ligne
+  `sources`, crée d'abord la source (le catalogue lui-même : Capterra, AppSumo…) et
+  référence son id.
   PAS d'instruction complète — c'est le métier de l'Instructeur. Dédup obligatoire
   avant (constitution). **Vise 6-12 leads de qualité** : lire beaucoup ne veut pas dire
   insérer n'importe quoi — la lecture est vorace, le tri reste féroce.
@@ -156,9 +177,11 @@ métier — recycle-le immédiatement en requêtes libres.
 
 ## Sas de nouveauté (PH / HN / flux de lancements) — 5 min plafonnées
 
-PH et HN restent là où la nouveauté apparaît (2 des 13 GO historiques en viennent :
-NudgeForMe ; convergence StackSpend+CodeBurn). Mais le flux généraliste ≈ 95 % de bruit :
-ton budget d'instruction n'y va jamais. Traitement en sas :
+PH et HN restent là où la nouveauté apparaît. Mais le flux généraliste ≈ 95 % de bruit,
+et **un lancement ne porte aucune preuve de traction** — c'est donc la source la plus
+éloignée de la jambe 0 : ton budget d'instruction n'y va jamais. (La mention « 2 des 13 GO
+historiques en viennent » a été retirée le 2026-09-06 : ces GO appartenaient à une base
+antérieure jamais importée, cette base-ci n'en contient aucun.) Traitement en sas :
 - Scan TITRES/taglines du jour uniquement, 5 minutes chrono, jamais plus.
 - Ne retiens que ce qui matche un JTBD vertical/métier/B2B (conformité, ops, e-commerce,
   profession identifiable). Le reste n'est même pas noté individuellement.
@@ -208,6 +231,16 @@ Un listicle est un POINTEUR, jamais une PREUVE : tu peux y prendre un nom de pro
 instruire ailleurs, mais aucun chiffre (« MRR déclaré ») n'entre en base sans URL
 primaire. Un site listicle récidiviste en chiffres invérifiables → propose son
 bannissement dans ton journal.
+
+**Champ `candidats_inseres` : ne compte QUE les lignes réellement INSÉRÉES dans
+`prospection_clones` aujourd'hui.** Pas les tranches de `carte_produits` dépouillées,
+pas les produits examinés, pas les sources créées (celles-là vont dans
+`metriques.insertions`). Contrôlé le 2026-09-06 : le Kiosque a déclaré
+`candidats_inseres = 9` un jour où **zéro** ligne a été créée dans `prospection_clones`
+— il comptait ses 9 tranches. Ce champ est l'entrée du recoupement anti-mensonge du
+Superviseur (`v_sante_pipeline.inserts_declares` vs `leads_reels`) : un nombre qui ne
+désigne pas des leads le rend inutilisable. Vérifie avant d'écrire :
+`SELECT count(*) FROM prospection_clones WHERE date_run = CURRENT_DATE;`
 
 Fin de run : journal `veille_runs` (agent='kiosque') — y compris les terriers suivis
 et ce qu'ils ont donné, les requêtes libres qui ont payé (elles nourrissent les runs

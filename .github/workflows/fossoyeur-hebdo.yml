@@ -33,7 +33,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent FOSSOYEUR-RESSUSCTEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/fossoyeur.md, et exécute intégralement ta mission hebdomadaire."
-          claude_args: "--model claude-sonnet-5 --max-turns 90 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 120 --dangerously-skip-permissions"
       - name: Préparer le digest
         id: memo
         if: ${{ always() }}

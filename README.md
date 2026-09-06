@@ -12,7 +12,7 @@ avec ton abonnement **Claude Max** — aucun PC, aucune clé API, aucune facture
  PASSE MÉMO   ├─ KIOSQUE (sonnet-5) ─────┐  lit comme un passionné, mine idées + sources citées
               └─ PROSPECTEUR (sonnet-5) ─┤  fore un secteur NAF vierge → sources neuves
                                          ▼
-               INSTRUCTEUR (opus-5) ────►  instruit ≤4 leads — jusqu'à 6-7 si vivier riche (+1 réserve), trou FR d'abord
+               INSTRUCTEUR (opus-5) ────►  instruit ≤4 leads (6-7 si vivier riche) — traction déjà prouvée, puis trou FR
                                          ▼
                CONTRE-AVOCAT (sonnet-5) ►  attaque TOUTE la file ; les survivants = GO
                                          ▼
@@ -335,13 +335,17 @@ dossiers** par jour — jusqu'à 6-7 quand le vivier est riche (+1 slot réserv�
 de vivier), qualité avant volume ; le
 Rattrapage ne se déclenche que si aucun candidat n'a survécu dans une fenêtre de 3
 jours — un survivant récent suffit à éteindre la 2e vague (0 tour de quota gaspillé).
-Les rares jours à zéro GO malgré tout ça sont des **JOURS ROUGES** assumés : cause
-probable, autopsies, et riposte automatique (Kiosque/Prospecteur doublent leur récolte
-le lendemain, diagnostic prioritaire du Superviseur en fin de semaine). Un système qui
-sortirait un GO par jour quoi qu'il arrive fabriquerait des faux ; celui-ci garantit la
-chasse — file de candidats + fenêtre de rattrapage ≈ un GO réel la grande majorité des
-jours — et traite chaque jour rouge comme un incident à corriger, jamais comme une
-routine.
+L'objectif est **un GO par semaine**, fixé après mesure (12 premiers jours : 31 dossiers
+instruits, 1 GO). Un jour sans GO est donc un **JOUR ROUGE** — un *constat* enregistré
+dans `verdicts`, qui ne déclenche aucun doublement d'effort. L'incident, c'est la
+**SEMAINE ROUGE** : zéro survivant sur 7 jours glissants, qui appelle le diagnostic
+prioritaire du Superviseur. Un système qui sortirait un GO par jour quoi qu'il arrive
+fabriquerait des faux.
+
+Le doublement automatique de la récolte a été retiré le 2026-09-06 : couplé à la
+consigne « tester le trou FR avant d'insérer », il formait une boucle qui resserrait le
+filtre à chaque jour rouge — 11 jours rouges sur 12, vivier à 1 lead, 12 runs de
+Contre-avocat sans une seule cible. Le remède prescrit était devenu la cause.
 
 ## Dépannage rapide
 

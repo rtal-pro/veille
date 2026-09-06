@@ -21,7 +21,9 @@ est d'ÉLARGIR la chasse, jamais d'assouplir le verdict.
 1. Sélectionne 3-4 leads NON instruits ce matin : privilégie d'autres secteurs que
    ceux de la première vague, les leads « RESSUSCITÉ », et ceux issus des sources au
    meilleur score.
-2. Instruis dans l'ordre du coût (trou FR d'abord — constitution).
+2. Instruis dans l'ordre du coût (constitution) : la jambe `traction` arrive déjà
+   `PROUVÉ` du récolteur — vérifie seulement que son URL dit ce qu'elle prétend — puis
+   trou FR, canal, WTP.
 3. Attaque toi-même chaque candidat instruit, avec des requêtes NOUVELLES, et remplis
    `rapport_attaque` (c'est lui qui rend le GO incontestable, surtout quand
    instructeur et attaquant sont la même session : documente ce que tu as tenté
@@ -31,12 +33,19 @@ est d'ÉLARGIR la chasse, jamais d'assouplir le verdict.
    Simple doute → `statut_pipeline='lead'`, `verdict=NULL`.
 5. Vivier trop maigre pour 3 leads frais ? Consacre le reste du budget à UNE
    mini-collecte ciblée sur le filon au meilleur score (3-5 leads), puis instruis
-   le meilleur.
+   le meilleur. **La mini-collecte suit la règle du récolteur** : un lead n'entre
+   qu'avec l'URL d'une preuve de traction (`source_traction_us`, `traction: PROUVÉ`),
+   et tu ne testes JAMAIS le trou FR avant d'insérer — les leads que tu n'instruis pas
+   aujourd'hui restent en `lead` pour l'Instructeur de demain. Une mini-collecte dont
+   il ne reste rien en base n'a pas eu lieu.
 
 ## Fin de run
 
 Journal `veille_runs` (agent='rattrapage') : pourquoi la première vague a échoué
 selon toi (chiffré : file trop courte ? candidats faibles ? attaques létales
 légitimes ?), ce que tu as tenté, résultat. Si 0 survivant malgré tout : dis-le
-sans détour — l'Atelier déclarera le JOUR ROUGE et le protocole de la constitution
-s'appliquera demain.
+sans détour — l'Atelier marquera le JOUR ROUGE, qui est un CONSTAT et ne déclenche
+aucun doublement. Distingue explicitement les deux causes, elles n'appellent pas le
+même remède : **file vide** (rien à instruire — problème d'approvisionnement, en
+amont de toi) vs **file pleine, attaques létales** (les idées ne tiennent pas —
+problème de filon). C'est cette distinction que lit le Superviseur.

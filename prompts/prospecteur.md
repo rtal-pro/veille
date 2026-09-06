@@ -44,8 +44,13 @@ et note-le au journal. Ne récite JAMAIS les codes de mémoire.
    avec `decouverte_via='prospecteur:NAF XXXX'`, statut `candidate`.
 4. Passe le secteur en `exploree` avec `date_exploration=CURRENT_DATE` et `notes`
    (2-3 lignes : qui paie quoi, où est la douleur visible, y a-t-il un éditeur dominant).
-5. Si en forant tu vois une idée évidente (obligation + trou + canal), insère-la en
-   `lead` comme le ferait le Kiosque — bonus, pas objectif.
+5. Si en forant tu tombes sur un produit dont la traction est LISIBLE par URL (avis
+   nombreux et datés, prix public affiché, MRR publié), insère-le en `lead` comme le
+   ferait le Kiosque, avec `source_traction_us` et `traction: PROUVÉ` — bonus, pas
+   objectif. **Ne teste pas le trou FR** : ce n'est ni ton métier ni celui du Kiosque,
+   et un trou tué avant l'INSERT ne laisse aucune trace en base (constitution,
+   « interdit absolu : le kill en amont »). Le critère « obligation + trou + canal » a
+   été retiré le 2026-09-06 : c'est exactement le filon qui a produit 28 morts sur 31.
 
 ## Chasse aux « sources de sources » (si budget restant)
 

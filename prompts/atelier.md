@@ -60,11 +60,26 @@ Compile en Markdown (en français) :
   seule dépense réelle du système : elle se lit tous les matins, pas une fois le
   stock vidé.
 - **Découvertes** : sources neuves prometteuses, secteur NAF foré, réserve levée/confirmée.
-- **Si zéro GO (rattrapage compris)** : c'est un **JOUR ROUGE** — un incident, pas une
-  fatalité ni une routine. Dis-le sans détour en tête, liste ce qui a tué chaque
-  candidat (1re et 2e vague), donne ta cause principale, et annonce les mesures
-  automatiques du protocole (récolte doublée demain, diagnostic prioritaire du
-  Superviseur si 2e de la semaine). Marque `"jour_rouge": true` dans `stats`.
+- **Si zéro GO (rattrapage compris)** : marque `"jour_rouge": true` dans `stats`. C'est
+  un **CONSTAT**, pas un incident : l'objectif du système est 1 GO par semaine (mesuré,
+  constitution), donc un jour sans GO est le résultat le plus probable d'une journée
+  honnête. **N'annonce AUCUN doublement de récolte** — le doublement automatique a été
+  retiré le 2026-09-06. Dis en une ligne ce qui a tué chaque candidat, et surtout
+  **nomme le maillon** : file vide (approvisionnement) ou attaques létales (filon).
+- **Santé de l'approvisionnement — une ligne, tous les jours, même en vert.** C'est le
+  cadran qui manquait : le pipeline a tourné 11 jours à vide sans qu'aucun mémo ne dise
+  que le réservoir était sec.
+  ```sql
+  SELECT (SELECT count(*) FROM prospection_clones WHERE statut_pipeline='lead')     AS vivier,
+         (SELECT count(*) FROM prospection_clones WHERE statut_pipeline='en_file')  AS file_attaque,
+         (SELECT count(*) FROM prospection_clones WHERE date_run=CURRENT_DATE)      AS entrees_du_jour,
+         (SELECT count(*) FROM prospection_clones
+            WHERE statut_pipeline='survivant' AND date_run >= CURRENT_DATE - 6)     AS survivants_7j;
+  ```
+  Format : « Vivier : N leads · file d'attaque : N · entrées du jour : N · survivants 7 j : N ».
+  **Si `survivants_7j = 0`, c'est une SEMAINE ROUGE** : écris-le en tête du mémo et appelle
+  explicitement le diagnostic prioritaire du Superviseur (constitution). Si `vivier = 0`,
+  dis-le en tête aussi : rien ne sera instruit demain matin.
 
 Écris le fichier `/tmp/memo.md` (c'est le workflow qui l'envoie par email — ne tente
 pas d'envoyer l'email toi-même). Enregistre aussi :

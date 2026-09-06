@@ -9,7 +9,12 @@ C=veille-nouveautes-test
 docker rm -f $C >/dev/null 2>&1 || true
 docker run -d --name $C -e POSTGRES_PASSWORD=t pgvector/pgvector:pg17 >/dev/null
 trap 'docker rm -f $C >/dev/null' EXIT
-until docker exec $C pg_isready -U postgres -q; do sleep 1; done
+# Même condition d'attente que test_migrations.sh : pg_isready ment pendant
+# la phase de démarrage de l'entrypoint postgres (socket unix avant TCP).
+for _ in $(seq 60); do
+  docker exec $C psql "postgresql://postgres:t@localhost:5432/postgres" -tAc "select 1" >/dev/null 2>&1 && break
+  sleep 1
+done
 DB="postgresql://postgres:t@localhost:5432/postgres"
 q() { docker exec $C psql "$DB" -tAc "$1"; }
 for f in $(ls sql/*.sql | sort); do

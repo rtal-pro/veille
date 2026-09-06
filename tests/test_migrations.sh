@@ -14,8 +14,20 @@ docker run -d --name $C -e POSTGRES_PASSWORD=t pgvector/pgvector:pg17 >/dev/null
 # host-mapped port). Publishing a host port is unnecessary and risks colliding
 # with unrelated containers already bound to it on the dev machine.
 trap 'docker rm -f $C >/dev/null' EXIT
-until docker exec $C pg_isready -U postgres -q; do sleep 1; done
 DB="postgresql://postgres:t@localhost:5432/postgres"
+# Attendre la VRAIE condition (une requête qui aboutit sur le port TCP), pas
+# `pg_isready`, qui répond OK contre le serveur temporaire que l'entrypoint
+# postgres lance sur socket unix AVANT de redémarrer pour écouter en TCP.
+# Flake constatée le 2026-09-06 : test vert lancé seul, rouge dans run_all.sh
+# (« connection to server at "localhost" port 5432 failed: Connection refused »
+# sur le tout premier psql). Un test qui échoue une fois sur deux enseigne que
+# la porte est négociable.
+for _ in $(seq 60); do
+  docker exec $C psql "$DB" -tAc "select 1" >/dev/null 2>&1 && break
+  sleep 1
+done
+docker exec $C psql "$DB" -tAc "select 1" >/dev/null \
+  || { echo "FAIL: postgres injoignable en TCP après 60 s"; exit 1; }
 AGENT_DB="postgresql://agent_veille:t@localhost:5432/postgres"
 run_all() { for f in $(ls sql/*.sql | sort); do
   docker exec -i $C psql "$DB" -v ON_ERROR_STOP=1 -1 -q -f - < "$f" \

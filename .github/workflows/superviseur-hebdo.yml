@@ -40,7 +40,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent SUPERVISEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/superviseur.md, et exécute intégralement ta mission hebdomadaire d'audit et d'auto-correction."
-          claude_args: "--model claude-sonnet-5 --max-turns 100 --dangerously-skip-permissions"
+          claude_args: "--model claude-sonnet-5 --max-turns 120 --dangerously-skip-permissions"
       - name: Préparer l'audit
         id: memo
         if: ${{ always() }}

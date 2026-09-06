@@ -113,11 +113,33 @@ Avant d'explorer un sujet, un secteur, un outil ou une niche :
 carte NAF. Tu nais amnésique chaque matin ; cette fonction est ton hippocampe. Ce que
 le système sait déjà se relit, ne se redécouvre pas.
 
-## Ordre d'instruction d'une idée (l'ordre du coût)
+## Ordre de preuve d'une idée — TRACTION D'ABORD, TROU ENSUITE
 
-1. **Trou FR d'abord** (~15-20 min de recherche EN FRANÇAIS : concurrents FR, fonction
-   native de la plateforme, substitut gratuit dominant). C'est le tueur n°1 (37 % des
-   écartés historiques). S'il n'y a pas de trou → écarte immédiatement, n'instruis rien d'autre.
+**Jambe 0 — la traction est le TICKET D'ENTRÉE du vivier, pas une jambe d'instruction.**
+Un lead n'entre dans `prospection_clones` que s'il porte DÉJÀ l'URL d'une preuve que des
+gens PAIENT ce produit quelque part : avis nombreux et datés sur une fiche payante, prix
+public affiché, MRR publié, revenus publiés, produit en vente avec son chiffre. Le
+récolteur (Kiosque, Prospecteur, Rattrapage en mini-collecte) remplit `saas_source`,
+`preuve_traction_us` et `source_traction_us` À L'INSERTION, et pose
+`traction: {"statut": "PROUVÉ", "preuve_url": "..."}` dans `statut_jambes`. Sans cette
+URL, tu n'as pas un lead : tu as une intuition, et une intuition ne s'insère pas.
+
+Pourquoi cet ordre, et pas l'inverse — **mesure du 2026-09-06 sur les 31 dossiers de
+toute l'histoire de la base** : 28/31 portaient une preuve du trou français, **4/31
+seulement l'URL d'une preuve de traction**, et **28/31 sont morts à la jambe trou_fr**.
+Chercher un trou sans preuve de demande, c'est chercher un endroit où personne ne vend
+de pain en espérant que des gens y ont faim. Le trou est facile à croire et coûteux à
+réfuter ; la traction est coûteuse à trouver et impossible à contester.
+
+**L'Instructeur reçoit donc des dossiers dont la traction est déjà prouvée** et instruit
+les trois jambes restantes, dans l'ordre du coût :
+
+1. **Trou FR** (~15-20 min de recherche EN FRANÇAIS : concurrents FR, fonction
+   native de la plateforme, substitut gratuit dominant). C'est le tueur n°1 : **28 des 31
+   dossiers de l'histoire de la base sont morts là** (mesure du 2026-09-06 ; le « ~37 % des
+   écartés historiques » qui figurait ici venait d'une base antérieure jamais importée —
+   un chiffre qu'aucune requête ne peut vérifier n'est pas une mesure). S'il n'y a pas de
+   trou → écarte immédiatement, n'instruis rien d'autre.
    **Test d'absorption (défendabilité) — même quand le trou existe** : le déclencheur est
    OBSERVABLE, pas spéculatif. Si un acteur FR dominant du même espace (PMS, plateforme,
    éditeur) **cible publiquement CE job précis** — contenu SEO, roadmap, changelog, page
@@ -129,7 +151,10 @@ le système sait déjà se relit, ne se redécouvre pas.
    d'intégration, certification/agrément, ou un segment que l'incumbent ne poursuivra pas).
    **Sans cette URL de ciblage, l'absorption reste `HYPOTHÈSE`, jamais `RÉFUTÉ`** — une
    vélocité de build supposée n'est pas une preuve (règle maison : aucun kill sans URL lue).
-2. Canal self-serve identifiable. 3. Willingness-to-pay. 4. Traction/preuve de demande.
+2. **Canal** self-serve identifiable. 3. **Willingness-to-pay** (la MÊME cible paie déjà
+pour le MÊME job). La jambe **traction** est déjà `PROUVÉ` : ne la ré-instruis pas,
+vérifie seulement que l'URL du récolteur dit bien ce qu'elle prétend — si elle ment,
+repasse la jambe à `RÉFUTÉ` et écarte, c'est un défaut de récolte à journaliser.
 
 ## Barrières = kill immédiat (vague 0)
 
@@ -157,28 +182,58 @@ Verdict mécanique : 4×PROUVÉ → `verdict='GO'` · 3×PROUVÉ + 1 HYPOTHÈSE 
 test de levée concret → `verdict='GO sous réserve'` + INSERT dans `reserves` ·
 `trou_fr` ou `wtp` RÉFUTÉ → `verdict='écarté'` + `condition_resurrection` renseignée.
 
-## Protocole JOUR ROUGE
+## Protocole JOUR ROUGE / SEMAINE ROUGE
 
-Un jour sans AUCUN GO (deuxième vague comprise) est un INCIDENT, jamais une routine :
-l'objectif du système est au moins un GO réel par jour. L'Atelier le marque
-(`stats->>'jour_rouge' = 'true'` dans `verdicts`). Le lendemain d'un jour rouge
-(vérifie : `SELECT stats->>'jour_rouge' FROM verdicts WHERE type='quotidien' ORDER BY id DESC LIMIT 1;`) :
-Kiosque et Prospecteur DOUBLENT leur récolte, l'Instructeur maximise la diversité de
-secteurs dans sa sélection. Deux jours rouges dans la même semaine = diagnostic
-prioritaire du Superviseur. Ce protocole élargit la CHASSE ; il n'assouplit JAMAIS
-les critères de verdict — fabriquer un GO pour éviter un jour rouge est la faute
-maximale du système, détectée au contrôle qualité et attribuée à son auteur.
+**L'objectif du système est UN GO PAR SEMAINE, pas un par jour.** Ce chiffre est fixé
+APRÈS mesure, jamais avant : sur les 12 premiers jours d'exploitation (2026-08-26 →
+2026-09-06), 31 dossiers instruits ont produit **1 GO**. « Au moins un GO par jour »
+était un budget inventé avant la première mesure ; dépassé d'un facteur 12, il ne
+pilotait plus rien — il déclenchait juste le protocole d'urgence en permanence (11 jours
+rouges sur 12), et un protocole qui tourne tous les jours n'est plus un signal, c'est le
+régime normal. Ce plancher ne se rehausse que par décision humaine argumentée, après une
+nouvelle mesure.
 
-**Le doublement porte sur l'EFFORT, jamais sur le budget Firecrawl** : le plafond
-de crédits du jour ne bouge pas d'un jour rouge (le stock, lui, ne double pas).
-Et il porte sur la QUALIFICATION avant le volume. Constat du 2026-08-28 : cinq
-dossiers instruits, cinq écartés à la jambe 1, tous sur un `trou_fr` réfuté par un
-concurrent trouvable en une recherche — des trous apparents fabriqués par une
-recherche insuffisante en amont, pas par un manque de leads. Récolter deux fois
-plus de leads non qualifiés produit deux fois plus de morts à la jambe 1, un jour
-rouge de plus, et une facture de crédits. Doubler, c'est donc d'abord : tester le
-trou FR AVANT d'insérer (kill immédiat si le marché est servi), puis seulement
-élargir le nombre d'angles.
+**JOUR ROUGE = un CONSTAT, pas un incident.** Un jour sans GO est le résultat le plus
+probable d'une journée honnête. L'Atelier le marque toujours
+(`stats->>'jour_rouge' = 'true'` dans `verdicts`) — c'est la donnée qui alimente la
+mesure — mais **il ne déclenche AUCUN doublement d'effort**. Aucun agent ne change son
+régime de travail parce que la veille était rouge.
+
+**SEMAINE ROUGE = l'incident.** Zéro survivant sur 7 jours glissants :
+```sql
+SELECT count(*) FROM prospection_clones
+WHERE statut_pipeline='survivant' AND date_run >= CURRENT_DATE - 6;
+```
+→ 0 : c'est un INCIDENT, et il appelle le **diagnostic prioritaire du Superviseur**, pas
+un doublement de la récolte. Un système qui produit zéro pendant 7 jours n'a pas un
+problème de volume, il a un problème de méthode — doubler un effort qui ne marche pas
+produit deux fois rien, plus une facture de crédits.
+
+**Ce que le protocole n'autorise JAMAIS.** Il n'assouplit à aucun moment les critères de
+verdict : fabriquer un GO pour éviter un jour rouge est la faute maximale du système,
+détectée au contrôle qualité et attribuée à son auteur. Et il ne touche jamais au budget
+Firecrawl : le plafond de crédits du jour ne bouge pas (le stock, lui, ne double pas).
+
+## Interdit absolu : le kill en amont de l'insertion
+
+Un récolteur (Kiosque, Prospecteur) ne teste **JAMAIS** le trou FR avant d'insérer, et
+n'écarte jamais une idée pour cause de trou réfuté : ce n'est pas son métier, c'est celui
+de l'Instructeur. Cette consigne a existé du 2026-08-28 au 2026-09-06 et elle a cassé le
+système — mesure : à partir du 2026-09-03 le Kiosque a cessé d'insérer le moindre lead,
+l'Instructeur a tourné 7 runs consécutifs à vivier vide, le Contre-avocat 12 runs
+consécutifs à file vide, et le compteur d'attaques est resté à 0 sur 9 jours sur 12.
+Deux raisons de fond, et elles sont permanentes :
+
+1. **Un kill non inséré ne laisse aucune trace en base.** Les 9 réfutations du Kiosque du
+   2026-09-06 n'existent nulle part ailleurs que dans une phrase de son journal : pas de
+   `condition_resurrection`, rien pour le Fossoyeur, rien pour la dédup, rien pour la
+   mémoire. Le système est privé de la matière première dont toute sa doctrine dépend.
+2. **Le récolteur juge sans instruire.** Il tue en une requête ce que l'Instructeur
+   n'écarterait qu'après 8-10 minutes de recherche en français — et sans que personne
+   puisse jamais vérifier son verdict, puisqu'il n'en reste rien.
+
+Le tri du récolteur porte sur **la traction, et rien d'autre** : pas d'URL de preuve de
+paiement → pas d'insertion (jambe 0 ci-dessus). C'est le seul filtre amont, et il suffit.
 
 ## Fin de run obligatoire (même si stérile)
 

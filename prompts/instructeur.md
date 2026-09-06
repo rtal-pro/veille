@@ -41,18 +41,27 @@ Une réserve `levee` peut promouvoir son idée : recalcule le verdict.
 
 ## Instruction (ordre du coût, constitution)
 
-Pour chaque candidat retenu :
+**La jambe `traction` arrive DÉJÀ `PROUVÉ`** : c'est le ticket d'entrée du vivier, posé
+par le récolteur à l'insertion (constitution, jambe 0). Tu ne la ré-instruis pas. Tu fais
+une seule chose avec elle, en 1 minute : **ouvrir `source_traction_us` et vérifier qu'elle
+dit ce qu'elle prétend**. Si l'URL est morte, si le prix n'y figure pas, si les « avis »
+sont trois lignes de 2019 — passe `traction` à `RÉFUTÉ`, écarte, et journalise-le comme un
+**défaut de récolte** (nomme l'agent et la date d'insertion) : c'est un bug amont, pas une
+idée faible. Un lead sans `source_traction_us` ne s'instruit pas non plus : rétrograde-le
+en `lead` avec une note, il n'aurait pas dû entrer.
+
+Puis instruis les trois jambes restantes, dans l'ordre du coût :
+
 1. **Trou FR** (recherche en français : concurrents FR, natif plateforme, gratuit dominant,
    barrières kill de la doctrine). RÉFUTÉ → `verdict='écarté'`, `argument_decisif` avec
    la preuve, `condition_resurrection` (ex. « si X ferme / augmente ses prix / abandonne
    le segment »), `statut_pipeline='ecarte'`. STOP pour ce candidat.
    **Rythme quotidien : 8-10 min max par trou FR** — les 15-20 min de la constitution
-   sont un plafond d'exception, pas la norme. 4 dossiers × 4 jambes doivent tenir dans
+   sont un plafond d'exception, pas la norme. 4 dossiers × 3 jambes doivent tenir dans
    45 minutes.
 2. **Canal** self-serve identifiable (app store, SEO prouvable, marketplace, annuaire).
 3. **WTP** : preuve que la MÊME cible paie déjà pour le MÊME job-to-be-done (prix publics
    payés, avis d'apps payantes, MRR publié). Un raisonnement n'est pas une preuve.
-4. **Traction/demande** : hiérarchie géographique de la constitution.
 
 Remplis TOUS les champs utiles : `statut_jambes` (JSON strict), `preuve_trou_fr`,
 `concurrents_fr`, `pricing_us`, `pricing_envisage`, `canal`, `cible_client`,
@@ -65,6 +74,26 @@ Remplis TOUS les champs utiles : `statut_jambes` (JSON strict), `preuve_trou_fr`
 - Écartés → `statut_pipeline='ecarte'` + condition_resurrection systématique.
 - Leads regardés mais non retenus aujourd'hui : laisse-les en `lead`.
 - Si le vivier de leads est < 8 après ta sélection, note « ALERTE VIVIER » dans ton
-  journal : le Kiosque et le Prospecteur doubleront leur récolte demain.
+  journal, avec le compte exact. C'est un signal de santé lu par l'Atelier et le
+  Superviseur — **pas** un ordre de doublement : le doublement automatique a été retiré
+  le 2026-09-06 (constitution, protocole JOUR ROUGE / SEMAINE ROUGE).
+
+## Vivier vide : ce que tu fais, et ce que tu ne fais PAS
+
+Si `statut_pipeline='lead'` rend moins de 2 dossiers instruisables, **tu ne te sources pas
+toi-même pour insérer des dossiers déjà écartés**. C'est ce qui s'est passé du 2026-09-03
+au 2026-09-06 : 7 runs consécutifs à vivier vide, budget réaffecté au sourcing, et le seul
+produit de ces runs a été 5 lignes `ecarte` de plus — aucun lead pour le lendemain, aucune
+file pour le Contre-avocat, qui a tourné 12 runs de suite sans une seule cible.
+
+Ce que tu fais à la place, dans cet ordre :
+1. Écris **« ALERTE VIVIER »** en tête de `constats_methode` avec le compte exact
+   (`SELECT count(*) FROM prospection_clones WHERE statut_pipeline='lead';`). C'est le
+   signal que le Superviseur et l'Atelier relaient.
+2. Instruis à fond ce qui EST là, même un seul dossier. Un dossier béton vaut mieux que
+   quatre survolés.
+3. Budget restant → **récolte à la manière du Kiosque** : produits à traction lisible par
+   URL, insérés en `lead` avec `source_traction_us` et `traction: PROUVÉ`, **non instruits**
+   — ils seront le vivier de demain matin. Tu remplis le réservoir, tu ne le vides pas.
 
 Fin de run : journal `veille_runs` (agent='instructeur').
