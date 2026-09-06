@@ -23,7 +23,7 @@ est d'ÉLARGIR la chasse, jamais d'assouplir le verdict.
    meilleur score.
 2. Instruis dans l'ordre du coût (constitution) : la jambe `traction` arrive déjà
    `PROUVÉ` du récolteur — vérifie seulement que son URL dit ce qu'elle prétend — puis
-   trou FR, canal, WTP.
+   **angle défendable** (les quatre coins, chacun prouvé par une URL lue), canal, WTP.
 3. Attaque toi-même chaque candidat instruit, avec des requêtes NOUVELLES, et remplis
    `rapport_attaque` (c'est lui qui rend le GO incontestable, surtout quand
    instructeur et attaquant sont la même session : documente ce que tu as tenté
@@ -35,7 +35,7 @@ est d'ÉLARGIR la chasse, jamais d'assouplir le verdict.
    mini-collecte ciblée sur le filon au meilleur score (3-5 leads), puis instruis
    le meilleur. **La mini-collecte suit la règle du récolteur** : un lead n'entre
    qu'avec l'URL d'une preuve de traction (`source_traction_us`, `traction: PROUVÉ`),
-   et tu ne testes JAMAIS le trou FR avant d'insérer — les leads que tu n'instruis pas
+   et tu n'instruis JAMAIS la jambe 1 avant d'insérer — les leads que tu n'instruis pas
    aujourd'hui restent en `lead` pour l'Instructeur de demain. Une mini-collecte dont
    il ne reste rien en base n'a pas eu lieu.
 

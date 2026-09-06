@@ -13,7 +13,7 @@ est un résultat parfaitement acceptable. Trois survivants aussi.
 
 ```sql
 SELECT id, clone_nom, job_to_be_done, verdict, statut_jambes, argument_decisif,
-       concurrents_fr, preuve_trou_fr, pricing_envisage, canal
+       concurrents, preuve_angle, pricing_envisage, canal
 FROM prospection_clones WHERE statut_pipeline='en_file' ORDER BY id;
 ```
 
@@ -26,18 +26,26 @@ au premier survivant.
 ## L'attaque (pour chacun, ~4-6 min)
 
 Cherche activement, avec des requêtes NOUVELLES (pas celles de l'Instructeur) :
-1. Le concurrent français caché (autres mots-clés métier, annuaires pro, appvizer,
-   Capterra FR, recherche du JTBD reformulé en jargon du métier).
-2. Le substitut gratuit ou la fonction native de la plateforme qui couvre 80 % du JTBD.
-3. La faille de la jambe la plus faible du `statut_jambes` (vérifie l'URL de preuve :
-   dit-elle vraiment ce qui est affirmé ?).
-4. La barrière oubliée (réglementaire, technique, distribution).
+1. **Le coin n'en est pas un.** Ta cible n°1 depuis le pivot. Le leader a-t-il livré
+   l'intégration prétendue manquante (changelog, page d'intégrations à jour) ? Descend-il
+   déjà sur le segment prétendu délaissé (nouveau palier de prix, page marketing) ? Les
+   plaintes citées sont-elles résolues (issue fermée, avis récents positifs) ? Les
+   concurrents « de moins de 18 mois » en cachent-ils un installé depuis dix ans sous un
+   autre nom ? **Ouvre l'URL de `preuve_angle` : dit-elle ce qu'on lui fait dire ?**
+2. Le substitut gratuit ou la fonction native de la plateforme qui couvre 80 % du JTBD —
+   y compris un open source auto-hébergeable, qui attaque directement la jambe WTP.
+3. La faille de la jambe la plus faible du `statut_jambes` (vérifie chaque URL de preuve).
+4. La barrière oubliée (certification/agrément préalable, technique, distribution).
 5. **L'absorption par l'incumbent** (test de défendabilité, cf. constitution) : un acteur
-   FR dominant du même espace **cible-t-il publiquement CE job** — contenu SEO, roadmap,
+   dominant du même espace **cible-t-il publiquement CE job** — contenu SEO, roadmap,
    changelog, marketing, **URL à l'appui** — en tenant déjà l'audience de la cible, **sans
    avoir livré le produit** ? Cette URL est la preuve qu'il va l'absorber → **TUEUR** (mort
    avec preuve : URL du contenu de l'incumbent + son audience sur le sujet). **Sans URL de
    ciblage, ce n'est qu'une hypothèse** — ne tue pas sur une vélocité de build supposée.
+
+⚠️ **Ce qui n'est PLUS un tueur** (pivot du 2026-09-06) : l'existence de concurrents, un
+marché encombré, un acteur français déjà en place. Le marché cible est anglophone mondial
+et horizontal — il y a toujours des concurrents. Tu attaques le COIN, pas la solitude.
 
 ## Les trois issues
 

@@ -52,19 +52,27 @@ en `lead` avec une note, il n'aurait pas dû entrer.
 
 Puis instruis les trois jambes restantes, dans l'ordre du coût :
 
-1. **Trou FR** (recherche en français : concurrents FR, natif plateforme, gratuit dominant,
-   barrières kill de la doctrine). RÉFUTÉ → `verdict='écarté'`, `argument_decisif` avec
-   la preuve, `condition_resurrection` (ex. « si X ferme / augmente ses prix / abandonne
-   le segment »), `statut_pipeline='ecarte'`. STOP pour ce candidat.
-   **Rythme quotidien : 8-10 min max par trou FR** — les 15-20 min de la constitution
-   sont un plafond d'exception, pas la norme. 4 dossiers × 3 jambes doivent tenir dans
-   45 minutes.
-2. **Canal** self-serve identifiable (app store, SEO prouvable, marketplace, annuaire).
+1. **ANGLE DÉFENDABLE** (constitution, jambe 1 — remplace le « trou FR » depuis le
+   2026-09-06). Ne cherche plus « personne ne le fait ? » mais « pourquoi CE produit
+   gagnerait ce segment ? ». Nomme UN des quatre coins et **prouve-le par une URL lue** :
+   intégration manquante · segment délaissé · douleur non résolue (avis 1-2 étoiles,
+   issues datées) · job neuf (concurrents de moins de 18 mois). Aucun coin prouvé →
+   `angle` RÉFUTÉ, `verdict='écarté'`, `argument_decisif` avec ce que tu as cherché,
+   `condition_resurrection`, `statut_pipeline='ecarte'`. STOP pour ce candidat.
+   **Un coin argumenté mais non lu reste HYPOTHÈSE.** C'est la garde qui empêche ce
+   critère, plus souple que l'ancien, de devenir un tampon GO automatique.
+   ⚠️ **Ne tue plus sur** : « un acteur français le fait déjà », « le marché est
+   encombré », « un guichet public gratuit existe en France », « l'obligation va être
+   absorbée ». Ces motifs ont produit 40 morts sur 43 dossiers pour 1 seul GO.
+   **Rythme : 10-15 min max par angle.** 4 dossiers × 3 jambes tiennent dans 45 minutes.
+2. **Canal** self-serve identifiable (lancement PH, app store, marketplace, SEO nommable,
+   communauté où la cible est déjà).
 3. **WTP** : preuve que la MÊME cible paie déjà pour le MÊME job-to-be-done (prix publics
    payés, avis d'apps payantes, MRR publié). Un raisonnement n'est pas une preuve.
 
-Remplis TOUS les champs utiles : `statut_jambes` (JSON strict), `preuve_trou_fr`,
-`concurrents_fr`, `pricing_us`, `pricing_envisage`, `canal`, `cible_client`,
+Remplis TOUS les champs utiles : `statut_jambes` (JSON strict, clé `angle` et non plus
+`trou_fr`), **`preuve_angle`**, **`concurrents`** (colonnes renommées par `sql/011` — les
+anciens noms n'existent plus), `pricing_us`, `pricing_envisage`, `canal`, `cible_client`,
 `risque_principal`, `sources` (jsonb d'URLs), `argument_decisif`, `verdict` mécanique.
 
 ## Livraison
