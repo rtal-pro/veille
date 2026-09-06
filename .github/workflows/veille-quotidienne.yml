@@ -13,6 +13,11 @@ on:
     # garde deja_fait dès que le mémo du jour existe.
     - cron: "0 15 * * *"
   workflow_dispatch:
+    inputs:
+      forcer_jugement:
+        description: "Re-juger aujourd'hui même si le mémo du jour existe déjà (écrit un 2e mémo pour la même date)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -87,6 +92,7 @@ jobs:
       # venait à manquer (la requête agent renverrait 0 lignes sans erreur
       # → deja_fait=0 → mémo dupliqué au run de reprise 11:00).
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      FORCER: ${{ inputs.forcer_jugement || 'false' }}
     steps:
       - uses: actions/checkout@v4
       - name: Verdict du jour ? Passe mémo ou récolte ?
@@ -96,11 +102,19 @@ jobs:
           command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
           N=$(psql "$SUPABASE_DB_URL" -tAc \
             "select count(*) from verdicts where date_run = current_date and type = 'quotidien'")
-          if [ "$N" -ge 1 ]; then
+          # FORCER : déclenchement manuel demandant explicitement un re-jugement.
+          # Vaut '' sur un event schedule (inputs n'existe pas) — le || 'false'
+          # ci-dessous garantit que la cadence automatique n'est JAMAIS forcée,
+          # donc que le garde anti-doublon reste intact hors intervention humaine.
+          # Existe parce que sans lui il n'y a aucun moyen de re-juger une journée :
+          # le mémo du matin fige le verdict du jour jusqu'au lendemain, même quand
+          # le vivier a été rempli après coup (cas du 2026-09-06).
+          if [ "$N" -ge 1 ] && [ "$FORCER" != "true" ]; then
             echo "deja_fait=1" >> "$GITHUB_OUTPUT"
             echo "Mémo du jour déjà en base."
           else
             echo "deja_fait=0" >> "$GITHUB_OUTPUT"
+            [ "$N" -ge 1 ] && echo "Mémo du jour déjà en base, mais re-jugement FORCÉ manuellement."
           fi
           SCHED="$(jq -r '.schedule // empty' "$GITHUB_EVENT_PATH")"
           MEMO="$(bash scripts/porte_memo.sh "$SCHED")"
