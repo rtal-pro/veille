@@ -41,34 +41,16 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "Tu es l'agent SUPERVISEUR. Lis d'abord prompts/_constitution.md (règles absolues), puis prompts/superviseur.md, et exécute intégralement ta mission hebdomadaire d'audit et d'auto-correction."
           claude_args: "--model claude-sonnet-5 --max-turns 120 --dangerously-skip-permissions"
-      - name: Préparer l'audit
-        id: memo
-        if: ${{ always() }}
-        run: |
-          if [ ! -s /tmp/memo.md ]; then
-            echo "⚠️ Audit introuvable : l'agent Superviseur n'a pas produit /tmp/memo.md. Voir les logs du run." > /tmp/memo.md
-          fi
-          D="MEMO_$(head -c8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-          { echo "MEMO<<$D"; cat /tmp/memo.md; echo; echo "$D"; } >> "$GITHUB_OUTPUT"
-      - name: Envoyer l'audit par email
-        if: ${{ always() }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.GMAIL_USER }}
-          password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          from: Veille SaaS
-          to: ${{ secrets.GMAIL_USER }}
-          subject: "🔬 Veille SaaS — audit hebdo du Superviseur"
-          convert_markdown: true
-          html_body: ${{ steps.memo.outputs.MEMO }}
-      - name: Alerte issue si l'audit n'est pas parti
+      # 2026-09-07 — l'audit ne part plus par email (décision du lecteur : un seul
+      # mail par jour, celui du mémo quotidien). Rien n'est perdu : le Superviseur
+      # écrit son audit dans la table `audits` (kpis, diagnostic, recommandations)
+      # et continue d'ouvrir et merger sa PR d'amélioration hebdomadaire.
+      # `select * from audits order by date_audit desc limit 1;` pour le relire.
+      - name: Alerte issue si le Superviseur a échoué
         if: ${{ failure() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue create --repo "$GITHUB_REPOSITORY" \
-            --title "🛑 Audit hebdo non livré" \
-            --body "Le job superviseur a échoué (agent ou envoi email). L'audit hebdo n'est pas arrivé par email. Voir le run : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            --title "🛑 Superviseur hebdo en échec" \
+            --body "Le job superviseur a échoué : ni audit en base, ni PR d'amélioration cette semaine. Voir le run : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

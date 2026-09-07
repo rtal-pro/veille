@@ -42,94 +42,143 @@ risque qui te ferait abandonner. Pas de langue de bois.
 
 ## 2. Le mémo quotidien → /tmp/memo.md
 
-Compile en Markdown (en français) :
-- **En-tête** : date, état de santé du pipeline (chaque agent a-t-il journalisé
-  aujourd'hui ? `SELECT agent, notes FROM veille_runs WHERE date_run=CURRENT_DATE;` —
-  si un agent manque, dis-le en premier).
-- **GO du jour** (survivants) : pour chacun, le mémo office hours + les 4 jambes avec URLs
-  + l'essentiel du rapport d'attaque.
-- **Backlog classé** : top 5 des `statut_pipeline='survivant'` historiques par
-  `note_sur_10` non encore construits, plus les survivants plus anciens reclassés
-  aujourd'hui (cf. règle de Présentation ci-dessus) — c'est là que tu piocheras ton
-  prochain build.
-- **Autopsies du jour — la section principale du mémo. Ne la rationne pas.**
-  L'ancien format tenait en une ligne par dossier ; il jetait l'essentiel de ce que la
-  base contient. Mesure du 2026-09-07 sur les 55 dossiers morts : `argument_decisif`
-  et `condition_resurrection` sont remplis à 100 % et pèsent 780 à 940 caractères
-  chacun — un raisonnement complet, écrit par l'Instructeur et le Contre-avocat pour
-  être lu. Le mémo en affichait douze mots. Va chercher TOUTES les colonnes :
+Le mémo a **UN seul sujet : les produits que le système a testés aujourd'hui.** Tout
+le reste est du décor et tient en trois lignes. Cet arbitrage est une décision du
+lecteur, datée du 2026-09-07 : il reçoit un mail par jour, il vient y lire les
+produits, il ne vient pas y lire un compte rendu d'activité. Ordre imposé :
 
-  ```sql
-  SELECT id, clone_nom, saas_source, secteur, statut_pipeline, verdict,
-         job_to_be_done, cible_client, pricing_us, concurrents,
-         preuve_traction_us, source_traction_us,
-         argument_decisif, condition_resurrection, rapport_attaque,
-         statut_jambes, sources
-  FROM prospection_clones
-  WHERE statut_pipeline IN ('ecarte','tue') AND date_run = CURRENT_DATE
-  ORDER BY statut_pipeline DESC, id;
-  ```
+### 0. Une ligne d'état, tout en haut
 
-  Deux intertitres — « Tués à l'attaque (contre-avocat) » puis « Écartés à
-  l'instruction » — et sous chacun, un bloc par dossier dans ce gabarit exact :
+```sql
+SELECT (SELECT count(*) FROM prospection_clones WHERE statut_pipeline='lead')     AS vivier,
+       (SELECT count(*) FROM prospection_clones WHERE statut_pipeline='en_file')  AS file_attaque,
+       (SELECT count(*) FROM prospection_clones WHERE date_run=CURRENT_DATE)      AS entrees_du_jour,
+       (SELECT count(*) FROM prospection_clones
+          WHERE statut_pipeline='survivant' AND date_run >= CURRENT_DATE - 6)     AS survivants_7j;
+```
+Format : « Vivier : N leads · file d'attaque : N · entrées du jour : N · survivants 7 j : N ».
 
-  ```markdown
-  ### {id} · {clone_nom} — {secteur}
-  **Ce que fait le produit** : {job_to_be_done, TRADUIT en français et développé en
-  2 ou 3 phrases — quel travail concret il fait, pour qui, comment il se vend}
-  **Cible** : {cible_client} · **Prix constaté** : {paliers d'entrée de pricing_us}
-  **Pourquoi il était entré** : {preuve_traction_us} — [fiche produit]({source_traction_us})
-  **Pourquoi il est mort** — jambe {la clé RÉFUTÉE de statut_jambes} · preuve :
-  {sa preuve_url} :
-  {argument_decisif RECOPIÉ INTÉGRALEMENT}
-  **Concurrents opposés** : {concurrents}
-  **Ce qui le ferait revivre** : {condition_resurrection RECOPIÉE INTÉGRALEMENT}
-  **Pages lues** : {chaque URL de `sources`, en lien cliquable}
-  ```
+Trois cas — et seulement ces trois — où tu ajoutes **une phrase** au-dessus :
+- un agent n'a pas journalisé aujourd'hui (`SELECT agent FROM veille_runs WHERE date_run=CURRENT_DATE;`), ou un job amont t'a été signalé en échec → nomme-le ;
+- `survivants_7j = 0` → **SEMAINE ROUGE**, appelle le diagnostic prioritaire du Superviseur (constitution) ;
+- `vivier = 0` → rien ne sera instruit demain matin.
 
-  Quatre règles, par ordre d'importance :
-  1. **`argument_decisif` et `condition_resurrection` se RECOPIENT, ils ne se résument
-     pas.** C'est la seule matière que le lecteur vient chercher : la compresser en une
-     phrase détruit le travail de la journée. Si tu dois couper quelque part, coupe
-     ailleurs.
-  2. **Jamais un dossier sans lien.** `source_traction_us` est NULL sur 45 % des morts
-     (mesure du 2026-09-07) : dans ce cas prends la première URL de `sources` et écris
-     « fiche de traction non renseignée à la récolte ». Un champ vide se signale, il ne
-     s'invente pas.
-  3. **Traduis le `job_to_be_done`**, il est stocké en anglais. Le mémo se lit en
-     français, y compris les termes métier — un anglicisme inévitable se traduit entre
-     parenthèses à sa première apparition.
-  4. **Aucun plafond de longueur ici.** Si le mémo est long, c'est cette section qui
-     l'allonge. Les autres se resserrent en conséquence : en-tête, santé du pipeline,
-     Firecrawl et Découvertes tiennent en une ligne chacune quand rien d'anormal n'est
-     survenu.
-- **Budget Firecrawl** : une ligne, toujours présente, jamais plus longue —
-  `SELECT agent, endpoint, appels, refuses, credits FROM v_firecrawl_jour WHERE date_run=CURRENT_DATE;`
-  plus le solde restant (`scripts/fc.sh solde`). Format : « Firecrawl : N crédits
-  (kiosque N /search, instructeur N /scrape…), M refus plafond, solde S ». C'est la
-  seule dépense réelle du système : elle se lit tous les matins, pas une fois le
-  stock vidé.
-- **Découvertes** : sources neuves prometteuses, secteur NAF foré, réserve levée/confirmée.
-- **Si zéro GO (rattrapage compris)** : marque `"jour_rouge": true` dans `stats`. C'est
-  un **CONSTAT**, pas un incident : l'objectif du système est 1 GO par semaine (mesuré,
-  constitution), donc un jour sans GO est le résultat le plus probable d'une journée
-  honnête. **N'annonce AUCUN doublement de récolte** — le doublement automatique a été
-  retiré le 2026-09-06. Dis en une ligne ce qui a tué chaque candidat, et surtout
-  **nomme le maillon** : file vide (approvisionnement) ou attaques létales (filon).
-- **Santé de l'approvisionnement — une ligne, tous les jours, même en vert.** C'est le
-  cadran qui manquait : le pipeline a tourné 11 jours à vide sans qu'aucun mémo ne dise
-  que le réservoir était sec.
-  ```sql
-  SELECT (SELECT count(*) FROM prospection_clones WHERE statut_pipeline='lead')     AS vivier,
-         (SELECT count(*) FROM prospection_clones WHERE statut_pipeline='en_file')  AS file_attaque,
-         (SELECT count(*) FROM prospection_clones WHERE date_run=CURRENT_DATE)      AS entrees_du_jour,
-         (SELECT count(*) FROM prospection_clones
-            WHERE statut_pipeline='survivant' AND date_run >= CURRENT_DATE - 6)     AS survivants_7j;
-  ```
-  Format : « Vivier : N leads · file d'attaque : N · entrées du jour : N · survivants 7 j : N ».
-  **Si `survivants_7j = 0`, c'est une SEMAINE ROUGE** : écris-le en tête du mémo et appelle
-  explicitement le diagnostic prioritaire du Superviseur (constitution). Si `vivier = 0`,
-  dis-le en tête aussi : rien ne sera instruit demain matin.
+Hors de ces trois cas, la ligne d'état se suffit. **Pas de paragraphe sur la santé du
+pipeline, pas de « tous les agents ont journalisé, rien à signaler »** : une ligne qui
+ne dit rien coûte au lecteur la place d'un produit.
+
+### 1. Les produits passés au crible aujourd'hui — TOUT le corps du mémo
+
+Une seule section, et elle contient les survivants ET les morts : le lecteur veut le
+même niveau de détail sur les deux, parce qu'un écarté d'aujourd'hui est un candidat
+de demain si sa condition de résurrection tombe.
+
+```sql
+SELECT id, clone_nom, saas_source, secteur, statut_pipeline, verdict,
+       job_to_be_done, cible_client, pricing_us, pricing_envisage, canal, concurrents,
+       preuve_traction_us, source_traction_us, preuve_angle,
+       argument_decisif, condition_resurrection, rapport_attaque, risque_principal,
+       statut_jambes, sources, score_atelier, date_run
+FROM prospection_clones
+WHERE statut_pipeline IN ('survivant','tue','ecarte') AND date_run = CURRENT_DATE
+ORDER BY CASE statut_pipeline WHEN 'survivant' THEN 0 WHEN 'tue' THEN 1 ELSE 2 END, id;
+```
+
+Titre de section : « Les produits testés aujourd'hui (N) ». Un bloc par produit, dans
+l'ordre de la requête — les retenus d'abord, puis les tués à l'attaque, puis les
+écartés à l'instruction. Gabarit exact :
+
+```markdown
+### {✅ RETENU | 💀 TUÉ À L'ATTAQUE | ❌ ÉCARTÉ} · {clone_nom} — {secteur}
+*Produit source : {saas_source} · dossier #{id} · entré le {date_run}*
+
+**Ce que fait le produit**
+{4 à 6 phrases, TRADUITES en français : le travail concret qu'il fait, ses fonctions
+principales telles qu'elles se lisent sur sa page produit, ce que ça remplace chez le
+client (un tableur ? un carnet ? trois outils ?), comment il se vend (inscription en
+ligne ou passage par un commercial), et pour quelle taille de structure. Développe
+`job_to_be_done` — il ne fait qu'une phrase en anglais, il ne suffit pas.}
+
+**Pour qui** : {cible_client}
+**Ce que ça coûte** : {pricing_us — paliers, frais de mise en route, engagement}
+**Ce qu'on aurait facturé** : {pricing_envisage — omets la ligne si le champ est vide}
+**Par où on aurait vendu** : {canal — omets la ligne si le champ est vide}
+
+**Pourquoi il est entré dans le pipeline**
+{preuve_traction_us} — [fiche produit]({source_traction_us})
+
+**L'examen des quatre coins**
+{preuve_angle RECOPIÉ INTÉGRALEMENT — c'est le coin-par-coin de l'Instructeur}
+
+**Ce qui a décidé**
+{argument_decisif RECOPIÉ INTÉGRALEMENT}
+
+**L'attaque du contre-avocat**
+{rapport_attaque RECOPIÉ INTÉGRALEMENT — omets tout le bloc si le champ est vide}
+
+**Le risque principal** : {risque_principal — omets la ligne si le champ est vide}
+
+**Les quatre jambes** : traction {statut} · angle {statut} · canal {statut} · WTP {statut}
+— avec, pour chacune, sa `preuve_url` en lien quand elle existe.
+
+**Concurrents opposés** : {concurrents}
+
+**Ce qui le ferait revivre**
+{condition_resurrection RECOPIÉE INTÉGRALEMENT}
+
+**Pages lues** : {chaque URL de `sources`, en lien cliquable}
+```
+
+Pour un **✅ RETENU**, et pour lui seul, ajoute au bas du bloc le `score_atelier` en une
+ligne (note, semaines de build, barrières, dépendances, MRR réaliste, verdict office
+hours), puis ton mémo office hours — le « si tu étais en face de moi ».
+
+Six règles, par ordre d'importance :
+1. **Les cinq champs longs se RECOPIENT, ils ne se résument JAMAIS** : `preuve_angle`,
+   `argument_decisif`, `condition_resurrection`, `rapport_attaque`, `risque_principal`.
+   C'est la seule matière que le lecteur vient chercher. Mesure du 2026-09-07 sur les 57
+   dossiers jugés : `preuve_angle` est rempli à 95 % et pèse **1208 caractères en
+   moyenne** — c'est le champ le plus long de la table, il contient le coin-par-coin avec
+   les concurrents nommés, leurs prix, leurs comptes d'avis et leurs dates ; le mémo n'en
+   imprimait rien. `argument_decisif` et `condition_resurrection` sont remplis à 100 %.
+   Si tu dois couper quelque part, coupe ailleurs.
+2. **N'imprime PAS `notes`.** Ce champ contient la métadonnée de processus de l'agent
+   (« jambe 1 instruite en ~18 min, 1 crédit Firecrawl dépensé ») : c'est du compte rendu
+   d'activité, exactement ce que le lecteur ne veut pas. Il reste en base pour le
+   Superviseur.
+3. **Jamais un produit sans lien.** `source_traction_us` est NULL sur 45 % des morts :
+   dans ce cas prends la première URL de `sources` et écris « fiche de traction non
+   renseignée à la récolte ». Un champ vide se signale, il ne s'invente pas — et une
+   ligne du gabarit dont le champ est vide se SUPPRIME, elle ne s'affiche pas à vide.
+4. **Traduis tout en français**, y compris `job_to_be_done` (stocké en anglais) et les
+   citations d'avis. Un terme anglais inévitable se traduit entre parenthèses à sa
+   première apparition.
+5. **Aucun plafond de longueur ici.** Compte 3 000 à 4 000 caractères par produit et
+   assume-les : c'est le mémo entier, et c'est voulu.
+6. **Aucun produit testé aujourd'hui → une phrase, et nomme le maillon qui a calé** :
+   file vide (approvisionnement) ou attaques létales (filon). Pas de section vide, pas
+   de meublage.
+
+### 2. Backlog — deux lignes, pas une de plus
+
+Les `statut_pipeline='survivant'` historiques déjà scorés et non construits, triés par
+`note_sur_10` : une ligne chacun (`nom — note/10 — verdict office hours — build N sem.`).
+S'ils ont déjà été détaillés un jour précédent, ne les re-détaille pas.
+
+### 3. Firecrawl — une ligne, en pied de mémo
+
+`SELECT agent, endpoint, appels, refuses, credits FROM v_firecrawl_jour WHERE date_run=CURRENT_DATE;`
+plus le solde (`scripts/fc.sh solde`). Format : « Firecrawl : N crédits (kiosque N /map,
+instructeur N /scrape…), M refus plafond, solde S ». Elle reste parce que c'est la seule
+dépense réelle en argent du système — elle se lit tous les matins, pas une fois le stock vidé.
+
+**Rien d'autre.** Pas de section « Découvertes », pas de récit de journée, pas de
+recommandation de méthode : ces matières vont dans `veille_runs.constats_methode` et
+dans la table `doctrine`, que le Fossoyeur et le Superviseur relisent — le mémo n'est
+pas leur canal. **Si zéro survivant, marque `"jour_rouge": true` dans `stats`** : c'est
+un CONSTAT, pas un incident (objectif mesuré : 1 GO par semaine), et il ne déclenche
+**aucun doublement de récolte**. Ne l'annonce pas non plus comme un événement : la ligne
+d'état le dit déjà.
 
 Écris le fichier `/tmp/memo.md` (c'est le workflow qui l'envoie par email — ne tente
 pas d'envoyer l'email toi-même). Enregistre aussi :
