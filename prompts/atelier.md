@@ -52,7 +52,57 @@ Compile en Markdown (en français) :
   `note_sur_10` non encore construits, plus les survivants plus anciens reclassés
   aujourd'hui (cf. règle de Présentation ci-dessus) — c'est là que tu piocheras ton
   prochain build.
-- **Autopsies du jour** : les tués, en une ligne chacun (nom → tueur → condition de résurrection).
+- **Autopsies du jour — la section principale du mémo. Ne la rationne pas.**
+  L'ancien format tenait en une ligne par dossier ; il jetait l'essentiel de ce que la
+  base contient. Mesure du 2026-09-07 sur les 55 dossiers morts : `argument_decisif`
+  et `condition_resurrection` sont remplis à 100 % et pèsent 780 à 940 caractères
+  chacun — un raisonnement complet, écrit par l'Instructeur et le Contre-avocat pour
+  être lu. Le mémo en affichait douze mots. Va chercher TOUTES les colonnes :
+
+  ```sql
+  SELECT id, clone_nom, saas_source, secteur, statut_pipeline, verdict,
+         job_to_be_done, cible_client, pricing_us, concurrents,
+         preuve_traction_us, source_traction_us,
+         argument_decisif, condition_resurrection, rapport_attaque,
+         statut_jambes, sources
+  FROM prospection_clones
+  WHERE statut_pipeline IN ('ecarte','tue') AND date_run = CURRENT_DATE
+  ORDER BY statut_pipeline DESC, id;
+  ```
+
+  Deux intertitres — « Tués à l'attaque (contre-avocat) » puis « Écartés à
+  l'instruction » — et sous chacun, un bloc par dossier dans ce gabarit exact :
+
+  ```markdown
+  ### {id} · {clone_nom} — {secteur}
+  **Ce que fait le produit** : {job_to_be_done, TRADUIT en français et développé en
+  2 ou 3 phrases — quel travail concret il fait, pour qui, comment il se vend}
+  **Cible** : {cible_client} · **Prix constaté** : {paliers d'entrée de pricing_us}
+  **Pourquoi il était entré** : {preuve_traction_us} — [fiche produit]({source_traction_us})
+  **Pourquoi il est mort** — jambe {la clé RÉFUTÉE de statut_jambes} · preuve :
+  {sa preuve_url} :
+  {argument_decisif RECOPIÉ INTÉGRALEMENT}
+  **Concurrents opposés** : {concurrents}
+  **Ce qui le ferait revivre** : {condition_resurrection RECOPIÉE INTÉGRALEMENT}
+  **Pages lues** : {chaque URL de `sources`, en lien cliquable}
+  ```
+
+  Quatre règles, par ordre d'importance :
+  1. **`argument_decisif` et `condition_resurrection` se RECOPIENT, ils ne se résument
+     pas.** C'est la seule matière que le lecteur vient chercher : la compresser en une
+     phrase détruit le travail de la journée. Si tu dois couper quelque part, coupe
+     ailleurs.
+  2. **Jamais un dossier sans lien.** `source_traction_us` est NULL sur 45 % des morts
+     (mesure du 2026-09-07) : dans ce cas prends la première URL de `sources` et écris
+     « fiche de traction non renseignée à la récolte ». Un champ vide se signale, il ne
+     s'invente pas.
+  3. **Traduis le `job_to_be_done`**, il est stocké en anglais. Le mémo se lit en
+     français, y compris les termes métier — un anglicisme inévitable se traduit entre
+     parenthèses à sa première apparition.
+  4. **Aucun plafond de longueur ici.** Si le mémo est long, c'est cette section qui
+     l'allonge. Les autres se resserrent en conséquence : en-tête, santé du pipeline,
+     Firecrawl et Découvertes tiennent en une ligne chacune quand rien d'anormal n'est
+     survenu.
 - **Budget Firecrawl** : une ligne, toujours présente, jamais plus longue —
   `SELECT agent, endpoint, appels, refuses, credits FROM v_firecrawl_jour WHERE date_run=CURRENT_DATE;`
   plus le solde restant (`scripts/fc.sh solde`). Format : « Firecrawl : N crédits
