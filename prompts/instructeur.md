@@ -127,8 +127,27 @@ Puis instruis les trois jambes restantes, dans l'ordre du coût :
    encombré », « un guichet public gratuit existe en France », « l'obligation va être
    absorbée ». Ces motifs ont produit 40 morts sur 43 dossiers pour 1 seul GO.
    **Rythme : 10-15 min max par angle.** 4 dossiers × 3 jambes tiennent dans 45 minutes.
-2. **Canal** self-serve identifiable (lancement PH, app store, marketplace, SEO nommable,
-   communauté où la cible est déjà).
+2. **Canal** self-serve identifiable — et depuis le 2026-09-14, **il ne passe `PROUVÉ` que
+   si tu as LU un NOMBRE.** « Un annuaire existe », « il y a des comparatifs SEO », « la
+   cible est sur ce forum » : c'est HYPOTHÈSE. Ce qui compte n'est pas qu'un canal existe,
+   c'est qu'il puisse livrer **le nombre de clients dont l'objectif a besoin**.
+   Preuves chiffrées recevables — une seule suffit, URL à l'appui :
+   - le **compteur d'installations ou d'avis d'une app comparable** sur la marketplace visée
+     (Shopify, Square, Slack, Atlassian, WordPress l'affichent app par app) : il dit combien
+     de clients ce canal a DÉJÀ livrés à un concurrent. C'est la meilleure des quatre ;
+   - le **nombre de membres** d'une communauté, **plus** la règle écrite qui autorise d'y
+     promouvoir un outil — sans cette règle le canal est fermé, pas ouvert ;
+   - le **nombre de fiches ou d'inscrits** d'un annuaire, ou son trafic mesurable ;
+   - le **volume de recherche** d'un terme d'achat nommé.
+   Écris le chiffre ET son URL dans `canal`. Sans chiffre lu → `canal: HYPOTHÈSE`, et le
+   verdict mécanique en tient compte comme pour n'importe quelle jambe non prouvée.
+   **Pourquoi cette exigence existe** : mesure du 2026-09-14 — la jambe `canal` est PROUVÉE
+   sur les deux survivants de la base, et dans les deux cas la preuve est « une page
+   existe ». Pour Volgistics : un article comparatif « alternatives to Volgistics ». Ça ne
+   dit rien du nombre d'associations que cette page amène. Ce système prouve la demande
+   (jambe 0), la défendabilité (jambe 1) et le consentement à payer (WTP) — il ne prouvait
+   **jamais l'accessibilité**. Pour un objectif à 2 000 $/mois l'approximation passait ; à
+   10 000 $ avec 33 clients, « d'où viennent les 33 » est la question centrale.
 3. **WTP** : preuve que la MÊME cible paie déjà pour le MÊME job-to-be-done (prix publics
    payés, avis d'apps payantes, MRR publié). Un raisonnement n'est pas une preuve.
 

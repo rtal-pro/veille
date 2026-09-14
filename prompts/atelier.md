@@ -28,6 +28,8 @@ Pour chacun, remplis `score_atelier` (jsonb) :
  "mrr_12mois_realiste": "fourchette prudente si estimable, sinon 'non estimable'",
  "prix_envisage_mois": 149,
  "clients_pour_10k": 67,
+ "canal_taille_lue": "12 400 installations de <app comparable> — <URL> | 'non chiffré'",
+ "part_du_canal_requise": "0,5 %",
  "note_sur_10": 7,
  "verdict_office_hours": "BUILD | BUILD APRÈS TEST | FUIS"}
 ```
@@ -43,6 +45,19 @@ excellent et hors sujet. Il commande le verdict :
 Mesure du 2026-09-14 : les trois seuls dossiers jamais scorés plafonnent à 2 000, 2 000 et
 4 000 $/mois de borne HAUTE à 12 mois. Aucun n'atteint l'objectif. Ce champ est là pour que
 ça se voie dans le mémo au lieu de se découvrir après le build.
+
+**`part_du_canal_requise` = `clients_pour_10k` ÷ la taille de canal lue par l'Instructeur.**
+C'est le chaînon manquant entre « idée prouvée » et « 10 000 $/mois », et c'est la phrase
+que le lecteur vient chercher : *combien de ce canal faut-il capter pour que ça marche ?*
+- **au-dessus de 10 %** → le verdict ne peut pas être `BUILD`. Capter un client sur dix d'un
+  canal entier, personne ne le fait ; dis-le en une ligne, sans l'habiller.
+- **sous 3 %** → dis-le explicitement. C'est le profil qui rend l'objectif atteignable, et
+  il est rare.
+- **`canal` en HYPOTHÈSE** (aucun nombre lu par l'Instructeur) → écris « part du canal : non
+  calculable, canal non chiffré » et **le verdict plafonne à `BUILD APRÈS TEST`**. Un canal
+  non chiffré n'est pas un détail de dossier : c'est la jambe qui décide si les clients
+  existent quelque part d'atteignable. Mesure du 2026-09-14 : les deux survivants de la base
+  ont un canal PROUVÉ dont la preuve est « une page existe », jamais un nombre.
 
 **Présentation** : un survivant avec `date_run = CURRENT_DATE - 0..2` est un **GO du
 jour**. Un survivant plus ancien qui apparaît ici (ressuscité, backlog jamais scoré)
@@ -146,6 +161,11 @@ ligne ou passage par un commercial), et pour quelle taille de structure. Dévelo
 Pour un **✅ RETENU**, et pour lui seul, ajoute au bas du bloc le `score_atelier` en une
 ligne (note, semaines de build, barrières, dépendances, MRR réaliste, verdict office
 hours), puis ton mémo office hours — le « si tu étais en face de moi ».
+Cette ligne porte **toujours** les deux chiffres de l'objectif, même quand ils sont mauvais :
+`clients pour 10k : N` et `part du canal requise : X %` (ou « canal non chiffré »). Ce sont
+les deux seuls nombres qui disent si le dossier sert l'objectif du lecteur ou s'il est
+simplement bon — et un dossier bon mais hors objectif doit se lire comme tel dès le mémo,
+pas se découvrir après quatre semaines de build.
 
 Six règles, par ordre d'importance :
 1. **Les cinq champs longs se RECOPIENT, ils ne se résument JAMAIS** : `preuve_angle`,
