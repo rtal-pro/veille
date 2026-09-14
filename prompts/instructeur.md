@@ -29,6 +29,44 @@ ORDER BY date_run ASC
 LIMIT 5;
 ```
 
+**Premier geste du run, avant tout dossier : lis la classe de référence.**
+
+```sql
+SELECT niveau, plancher, forme_trou, vente_modernes, palier, juges, survivants, taux_survie_pct
+FROM v_taux_de_base WHERE juges >= 10 ORDER BY niveau DESC, juges DESC;
+```
+
+Pour chaque dossier, **descends au niveau le plus fin dont `juges >= 10`, et pas plus
+bas** : niveau 3 (les quatre axes) si l'effectif suit, sinon niveau 2 (plancher +
+forme_trou), sinon niveau 1 (plancher seul). Puis **pars de la médiane de cette classe et
+ajuste avec les particularités du dossier — jamais l'inverse.** Partir du récit du dossier
+et ajuster vers le taux de base, c'est la faute que cette vue existe pour empêcher.
+Deux gardes, et elles ne sont pas décoratives :
+- **Sous 10 dossiers jugés, tu n'as pas un taux, tu as une anecdote.** Une classe de
+  référence sous-dimensionnée donne une estimation BIAISÉE, pas plus fine. Remonte d'un
+  niveau plutôt que de citer un taux calculé sur trois dossiers.
+- **Ne tire jamais un taux de `v_couverture_signature`** : ses cases sont vides par
+  construction, elle sert à voir où le système n'a jamais regardé, pas à prédire.
+Un taux de survie nul sur un effectif suffisant justifie un **tri de deux minutes**, pas
+une instruction de quinze — et tu écris le taux cité dans `argument_decisif`, avec son
+niveau et son effectif, pour qu'on puisse te contredire.
+
+**Complète la signature sur chaque dossier que tu instruis** (le Kiosque a posé `plancher`
+et `palier`, tu ajoutes les deux qui demandent d'avoir instruit) :
+
+```sql
+UPDATE prospection_clones
+SET signature = coalesce(signature,'{}'::jsonb)
+                || '{"forme_trou": "...", "vente_modernes": "..."}'::jsonb
+WHERE id = ...;
+```
+
+**Vocabulaire FERMÉ :**
+`forme_trou` : `refus_publie` · `douleur_ancienne` · `integration_manquante` · `job_neuf`
+· `segment_orphelin` · `aucun` (le coin que tu as PROUVÉ, ou `aucun` si tu écartes)
+`vente_modernes` : `self_serve` · `devis` · `mixte` · `inconnu` (comment se vendent les
+concurrents modernes du segment — c'est ce qui distingue les deux survivants de la base)
+
 **Ordre de priorité, et il sert un chiffre précis.** L'objectif du lecteur est
 **10 000 $/mois en self-serve**. À 29 $/mois il lui faut 345 clients ; à 299 $/mois il lui
 en faut 33. À traction égale, **instruis d'abord les dossiers dont la ligne

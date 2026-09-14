@@ -249,6 +249,26 @@ seule laisse.
   Un concurrent à 0 $ tue un produit à 29 $ ; il ne tue pas un produit à 299 $, parce que
   l'acheteur à 299 $ ne magasine pas du gratuit. Les deux problèmes ont la même sortie.
 
+- **La SIGNATURE — deux clés à poser, tu as déjà les deux réponses** (migration 012).
+  Tu viens de relever le plancher et le palier ; écris-les aussi sous forme codée, parce
+  que du texte libre ne se compte pas :
+
+  ```sql
+  signature = '{"plancher": "...", "palier": "..."}'::jsonb
+  ```
+
+  **Vocabulaire FERMÉ — inventer une valeur casse le comptage, c'est son seul intérêt :**
+  `plancher` : `occupe_gratuit` · `occupe_bon_marche` · `vide` · `inconnu`
+  `palier`   : `bas` (<60 $) · `moyen` (60-149 $) · `haut` (≥150 $) · `inconnu`
+  Tu ne remplis QUE ces deux clés ; l'Instructeur ajoutera `forme_trou` et
+  `vente_modernes` à l'instruction — il ne peut pas les connaître avant d'avoir instruit,
+  et deviner vaudrait pire que laisser vide.
+  Pourquoi ce champ existe : mesure du 2026-09-14, la base comptait **155 dossiers pour
+  153 secteurs distincts** — 1,01 dossier par secteur, aucun groupe de trois. Le seul
+  champ de classement avait une cardinalité de un, donc la question « sur les dossiers qui
+  ressemblaient à celui-ci, combien ont survécu ? » était sans réponse possible. Tes deux
+  clés sont ce qui rend cette question calculable.
+
 - **`source_id` est obligatoire.** Contrôlé le 2026-09-06 : seuls 5 des 31 dossiers de
   `prospection_clones` en portaient un, ce qui rend le scoring des sources par rendement
   (Fossoyeur, chaque dimanche) purement inexploitable — le système ne peut pas savoir quels
