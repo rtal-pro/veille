@@ -20,6 +20,27 @@ FROM prospection_clones WHERE statut_pipeline='en_file' ORDER BY id;
 La file est bornée en amont (≤ 4-5 dossiers de l'Instructeur, plus d'éventuels
 `en_file` restés d'hier — attaque-les aussi).
 
+**File VIDE : tu ne sors pas en 60 secondes.** Mesure du 2026-09-14 : 0 attaque 4 jours sur
+9 depuis le pivot, des runs de 62 à 208 secondes pour 30 minutes de budget, pendant que 12
+dossiers du vivier attendaient depuis 5 à 8 jours sans avoir jamais été regardés. Tu fais
+alors ce que tu sais faire, un cran plus tôt — le **tri au plancher** sur les leads les plus
+anciens :
+
+```sql
+SELECT id, clone_nom, job_to_be_done, concurrents, preuve_traction_us
+FROM prospection_clones WHERE statut_pipeline='lead' AND rapport_attaque IS NULL
+ORDER BY date_run ASC LIMIT 10;
+```
+
+Lis la ligne `PLANCHER (kiosque)` en tête de `concurrents`, OUVRE son URL, et si un occupant
+gratuit ou quasi gratuit couvre le même job → `statut_pipeline='ecarte'`, `verdict='écarté'`,
+`argument_decisif` = le plancher lu **avec son URL**, `condition_resurrection` renseignée.
+Si la ligne dit « non trouvé », cherche toi-même à la bonne méthode : le JOB en mots simples,
+jamais « alternative à <produit> », puis la page de prix des moins chers.
+Trois gardes, non négociables : **mort avec URL lue uniquement** (un doute laisse le lead en
+place, comme à l'attaque) ; **tu ne descends jamais le vivier sous 8 leads** ; **tu ne touches
+pas aux dossiers portant un `rapport_attaque`**, ce sont les retours au vivier de l'Instructeur.
+
 Attaque **CHAQUE** candidat de la file, un par un, indépendamment. Ne t'arrête jamais
 au premier survivant.
 

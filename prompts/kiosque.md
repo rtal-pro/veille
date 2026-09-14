@@ -85,6 +85,24 @@ survolées, et une tranche laissée `vierge` sera reprise, ce qui est sans domma
   `empireflippers`, `odoo_apps`) ont produit 29 tranches pour **0 lead**. Le seul terrain
   qui ait jamais donné quelque chose est le seul qui ait été réapprovisionné : Capterra.
 
+- **Les MARKETPLACES D'APPS sont des terrains de carte, au même titre que Capterra —
+  ouvre-les** (ajouté le 2026-09-14). Shopify App Store, Square App Marketplace, Toast
+  Partner Directory, Slack App Directory, Atlassian Marketplace, HubSpot, monday.com,
+  WordPress.org, Chrome Web Store. Pourquoi ils marchent là où `empireflippers` a échoué :
+  ce sont des **catalogues de catégories où la preuve de paiement est affichée à côté de
+  chaque produit** (compteur d'installations, compteur d'avis, prix du plan) — exactement
+  la propriété qui fait de Capterra le seul terrain productif de ce système. Le nombre
+  d'installations d'une app payante vaut un compteur d'avis : c'est la jambe 0, servie.
+  Trois raisons de plus, et elles servent l'objectif 10k :
+  - les apps y sont massivement dans la fourchette **20-200 $/mois**, soit le palier moyen
+    à haut, là où l'occupant gratuit se raréfie ;
+  - les **avis 1-2 étoiles d'une app payante à fortes installations** sont un coin 3
+    (douleur non résolue) daté, public et citable — le meilleur matériau d'instruction ;
+  - la plateforme elle-même est le **canal** self-serve, déjà prouvé par son existence.
+  Procédure identique aux autres terrains : `fc.sh map` avec un `limit` explicite pour
+  relever les catégories réelles, une tranche `carte_produits` par catégorie, puis dépouille
+  et referme la case. Ne récite jamais les catégories de mémoire.
+
 Où en est cette chasse, tous terrains confondus : `SELECT * FROM v_carte_produits;`
 
 ## Ton régime de lecture (~20 sources par jour)
@@ -146,7 +164,24 @@ seule laisse.
   **Un lead porte sa preuve de traction dès l'insertion**, sans quoi il n'entre pas :
   `saas_source` (le produit copié, nommé), `preuve_traction_us` (ce qui montre que des gens
   paient : nombre d'avis, prix affiché, revenus publiés) et `source_traction_us` (l'URL qui
-  le prouve). Pose aussi la jambe dans `statut_jambes` dès l'insertion :
+  le prouve).
+
+  **`source_traction_us` est l'URL de la FICHE PRODUIT, jamais celle d'une page de
+  catégorie.** Sur Capterra, la seule forme qui compte est `capterra.com/p/<id>/<Produit>/` ;
+  `capterra.com/<categorie>-software` n'en est pas une — elle ne porte ni le compte d'avis,
+  ni la note, ni le prix du produit que tu cites. Même exigence partout ailleurs : la page
+  du produit, pas la page du rayon.
+  Mesure du 2026-09-14 : **25 des 120 leads insérés depuis le pivot (21 %) portent une URL
+  de catégorie.** Les chiffres, eux, étaient justes — 5 fiches rouvertes, 5 conformes au
+  chiffre près (Classe365, DreamClass, DonorSnap, Pingboard, ChartHop). Ce n'est donc pas
+  un mensonge, et c'est pire : ces 25 dossiers sont **inauditables**. Le contrôle qualité
+  hebdomadaire du Superviseur consiste à rouvrir les URLs de preuve — c'est ainsi que le
+  dossier 4 a été rétrogradé le 2026-09-12 — et sur une page de catégorie il n'y a rien à
+  rouvrir : la garde tourne à vide sur un dossier sur cinq. Si tu as lu le chiffre sur une
+  page de catégorie, **ouvre la fiche du produit et cite celle-là** ; si tu ne la trouves
+  pas, tu n'as pas de preuve, et le lead n'entre pas.
+
+  Pose aussi la jambe dans `statut_jambes` dès l'insertion :
 
   ```json
   {"angle":   {"statut": "NON_INSTRUIT", "preuve_url": null},
@@ -157,8 +192,62 @@ seule laisse.
 
   C'est la **jambe 0** de la constitution : la traction est le ticket d'entrée du vivier.
   Sans cette URL, tu n'as pas un lead, tu as une intuition — et une intuition ne s'insère
-  pas. Avec elle, tu n'as plus rien d'autre à vérifier : **la concurrence ne te regarde
-  pas** — et depuis le pivot du 2026-09-06 elle ne tue même plus personne.
+  pas. Avec elle, tu n'as plus rien d'autre à **vérifier** : la concurrence ne te fait RIEN
+  écarter — depuis le pivot du 2026-09-06 elle ne tue même plus personne, et le kill en
+  amont reste un interdit absolu (constitution).
+
+- **Le plancher de la catégorie : tu le RELÈVES, tu n'en conclus RIEN.** Deux minutes
+  avant d'insérer, et la MÉTHODE n'est pas négociable : **cherche le JOB en mots simples,
+  jamais les alternatives du produit source**, puis **OUVRE la page de prix des deux ou
+  trois résultats les moins chers**. « recipe costing software pricing » ✅ — « MarketMan
+  alternative » ❌, parce qu'une requête en « alternative à X » ne rend que des produits de
+  la classe de X. Pourquoi cette précision : le 2026-09-09, l'Instructeur a écrit sur le
+  dossier 88 « ici l'occupant plancher N'EXISTE PAS (aucun dédié sous 179 $/mois) » et l'a
+  appelé « la piste la plus sérieuse du jour ». Contrôle du 2026-09-14, deux pages ouvertes :
+  Recipe Cost Calculator vend le costing à **24,17 $/mois** et le job complet avec inventaire
+  à **107,50 $/mois**, et Freecost le fait **gratuitement**. Le plancher existait, la requête
+  ne pouvait pas le voir. C'est l'erreur chère du système : elle n'écarte pas un dossier de
+  trop, elle envoie CONSTRUIRE contre un concurrent à 24 $.
+  Écris le résultat en PREMIÈRE ligne du champ `concurrents`, sous cette forme exacte :
+
+  ```
+  PLANCHER (kiosque) : <produit le moins cher qui fait le même job en self-serve> — <prix affiché> — <URL lue>
+  ```
+
+  Rien trouvé en deux minutes → `PLANCHER (kiosque) : non trouvé en 2 min`. **Le lead
+  s'insère dans les deux cas, quel que soit le plancher, y compris à 0 $** : ce champ n'est
+  pas un filtre, c'est un relevé, et il ne te donne aucun droit d'écarter. Un plancher
+  gratuit n'empêche rien — il informe l'Instructeur, qui lui a le droit de juger.
+  Pourquoi cette consigne existe : mesure du 2026-09-14 sur les 125 dossiers morts avec
+  argument écrit, **60 (48 %) sont morts sur un occupant gratuit ou à prix plancher** — le
+  Fossoyeur en comptait 53 % de son côté le 2026-09-13, deux comptages indépendants. Cette
+  information coûte deux minutes chez toi ; découverte en aval elle coûte 10 à 15 minutes
+  d'Opus par dossier, et c'est elle qui plafonne le pipeline à 4 instructions par jour pour
+  13 leads entrants.
+
+- **Le PALIER de prix — le critère qui sert l'objectif, et il est nouveau.** L'objectif du
+  lecteur est **10 000 $/mois en self-serve**. Ce seul chiffre commande quel gibier vaut la
+  peine d'être rapporté :
+
+  | Prix du produit visé | Clients nécessaires pour 10k/mois |
+  |---|---|
+  | 29 $/mois | **345** — hors d'atteinte pour un dev seul en self-serve |
+  | 99 $/mois | 101 |
+  | 149 $/mois | 67 |
+  | 299 $/mois | **33** — atteignable |
+
+  Écris donc en DEUXIÈME ligne de `concurrents` :
+  `PALIER (kiosque) : <prix d'entrée public du produit source> — <haut/moyen/bas>` —
+  **haut ≥ 150 $/mois, moyen 60-149 $, bas < 60 $**.
+  **Tu n'écartes toujours rien** : un produit à 9 $ entre comme les autres. Mais à valeur
+  égale sur la traction, **rapporte en priorité le palier haut**. Mesure du 2026-09-14 :
+  prix médian du produit source chez les deux survivants = **9 $** ; chez les écartés 42 $ ;
+  chez les tués 80 $. Aucun dossier de toute l'histoire de la base n'a une borne haute de MRR
+  à 12 mois supérieure à 4 000 $/mois — la machine chassait un étage trop bas pour l'objectif
+  qu'on lui demande d'atteindre.
+  Effet de bord utile : le palier haut est aussi l'étage où l'occupant gratuit se raréfie.
+  Un concurrent à 0 $ tue un produit à 29 $ ; il ne tue pas un produit à 299 $, parce que
+  l'acheteur à 299 $ ne magasine pas du gratuit. Les deux problèmes ont la même sortie.
 
 - **`source_id` est obligatoire.** Contrôlé le 2026-09-06 : seuls 5 des 31 dossiers de
   `prospection_clones` en portaient un, ce qui rend le scoring des sources par rendement
@@ -169,6 +258,18 @@ seule laisse.
   PAS d'instruction complète — c'est le métier de l'Instructeur. Dédup obligatoire
   avant (constitution). **Vise 6-12 leads de qualité** : lire beaucoup ne veut pas dire
   insérer n'importe quoi — la lecture est vorace, le tri reste féroce.
+- **Les SOURCES se réapprovisionnent aussi — règle du 2026-09-14.** La règle « terrain à
+  sec → réapprovisionne » existe pour `carte_produits` et c'est la seule qui ait jamais
+  marché (Capterra est le seul terrain réapprovisionné, et le seul qui produise). Il n'y
+  avait **aucun équivalent pour `sources`**, et ça se mesure : le pivot du 06/09 a fait
+  enterrer **856 des 929 sources non-Capterra** — à juste titre, elles servaient la chasse
+  française abandonnée — et personne n'était chargé de reconstruire pour la nouvelle chasse.
+  Donc : `SELECT count(*) FROM sources WHERE statut='active' AND url NOT ILIKE '%capterra%';`
+  → **sous 40, tu consacres 10 minutes de ton run à amorcer des sources du périmètre
+  anglophone horizontal** (annuaires de lancements, newsletters SaaS indé, marketplaces
+  d'apps — Shopify, Square, Toast, Slack —, communautés de métier anglophones), insérées en
+  `candidate`. Un terrain de chasse ne se maintient pas tout seul, et un enterrement de masse
+  après un changement de doctrine laisse un trou que personne ne voit passer.
 - **Sources citées** → `INSERT INTO sources (url, nom, type_preuve, decouverte_via, statut)
   VALUES (..., ..., ..., 'kiosque: URL_DE_LARTICLE', 'candidate')` — uniquement si
   l'URL n'existe pas déjà (`SELECT 1 FROM sources WHERE url=...`).
@@ -205,6 +306,28 @@ le remplacent, et elles ne sont pas négociables :
    = douleur réelle. Journalise le signal même quand aucun des deux n'est insérable —
    c'est une piste pour ta recherche libre, en anglais.
 
+**La jambe 0 hors catalogue — ce qui débloque réellement ce terrain.** Mesure du
+2026-09-14 : 114 des 124 leads post-pivot (92 %) viennent de catégories Capterra, et la
+base contient **1 source Product Hunt, 2 Reddit, 0 Hacker News**. La cause est mécanique,
+pas de la paresse : un catalogue est le seul endroit où la preuve de paiement est affichée
+À CÔTÉ de chaque produit. Ailleurs il faut aller la chercher, et ça coûte du temps que tu
+n'as pas. Donc, pour un produit trouvé hors catalogue, la règle est :
+
+1. **Aller-retour catalogue de 30 secondes** : le produit a-t-il une fiche Capterra/G2 avec
+   un compteur d'avis ? Si oui → lead normal, tu cites la fiche.
+2. **S'il n'y en a pas parce que le produit est trop jeune, c'est le signal, pas l'obstacle.**
+   La constitution autorise déjà d'autres preuves, mot pour mot : « prix public affiché, MRR
+   publié, revenus publiés ». Le standard n'est pas « beaucoup de gens l'ont noté », c'est
+   **« on ne peut pas l'avoir sans payer »** — c'est exactement ce qui fait tenir Law Ruler,
+   dont les 47 avis comptent parce que le produit n'a NI essai gratuit NI version gratuite.
+   Recevable : un prix public affiché **sans palier gratuit couvrant le même job**. Non
+   recevable : des upvotes, une liste d'attente, un « lancement réussi ».
+3. **Étiquette-le** pour qu'on puisse le mesurer :
+   `"traction": {"statut": "PROUVÉ", "type_preuve": "prix_public_sans_gratuit", "preuve_url": "…"}`
+   (les leads de catalogue portent `"type_preuve": "avis_catalogue"`). Le Superviseur
+   comparera les deux populations au 2026-09-28 : si les non-catalogue survivent moins bien,
+   on referme cette porte. La mesure est prévue AVANT le changement, pas après.
+
 Ce qui passe la jambe 0 → lead normal (dédup d'abord, comme tout le reste). Le reste n'est
 même pas noté individuellement : le volume est énorme, ton tri reste féroce.
 
@@ -222,9 +345,17 @@ l'aurait déjà lue à 13:00. Dans la passe de 15:00, saute cette étape.
 
 Relève les lancements de la veille sur Product Hunt et les nouveaux deals AppSumo
 (ajoute un flux si tu en connais un meilleur, note-le). Garde ce qui est un outil B2B ou
-un SaaS identifiable — filtre plus large que celui de la chasse, qui exige un JTBD
-vertical : ici un bon outil horizontal a sa place dans une liste de lecture. Écarte le
-grand public, les jouets, les listes d'IA génériques. Pour chacun :
+un SaaS identifiable — filtre plus large que celui de la chasse parce qu'il accepte des
+produits SANS preuve de paiement, pas parce que la chasse exigerait un job vertical.
+⚠️ **CORRECTIF DU 2026-09-14** : cette phrase disait auparavant que la chasse « exige un
+JTBD vertical ». C'était un reliquat d'avant le pivot (section écrite le 03/09, pivot du
+06/09), et l'agent y a obéi à la lettre — journal du 13/09 : « Product Hunt leaderboard →
+PRODUCTIF pour digest, **STÉRILE pour la chasse (0 JTBD vertical)** ». Résultat mesuré :
+**0 lead venu de Product Hunt en 9 jours**, sur un terrain que ce même prompt déclare
+« gisement primaire ». Depuis le pivot, **un job HORIZONTAL est le gibier**, pas un motif
+de renvoi vers la liste de lecture. Un produit horizontal qui porte une preuve de paiement
+va dans `prospection_clones`, pas dans `nouveautes`.
+Écarte le grand public, les jouets, les listes d'IA génériques. Pour chacun :
 
 ```sql
 INSERT INTO nouveautes (terrain, nom, resume, url)
@@ -243,6 +374,91 @@ page d'index : c'est le lien sur lequel l'humain va cliquer.
 
 Budget : 5 minutes, ~15 à 30 produits. N'écris pas de résumé que tu n'as pas lu — si la
 tagline ne dit rien, saute le produit plutôt que d'inventer.
+
+## LES SEGMENTS ORPHELINS — terrain ajouté le 2026-09-14, à traiter avant la recherche libre
+
+**Le signal le plus dense de 2026, et celui qui colle le mieux à ce que ce système sait
+faire.** Mesure publique du T1 2026 : **23 SaaS ont supprimé ou fortement restreint leur
+offre gratuite, soit environ un tous les trois jours** — Linear (gratuit 250 → 10 membres,
+nouveau palier Scale à 16 $/membre, février 2026), Figma (gratuit ramené à 3 fichiers),
+Airtable (limites réduites + expiration des espaces), UptimeRobot (8 → 34 $/mois). Cause
+dominante : le **bundling IA forcé**, qui oblige à monter d'un palier pour garder l'outil
+qu'on avait déjà.
+
+Pourquoi ce terrain passe avant les autres :
+- **C'est le refus publié AVEC SA DATE.** Le « segment délaissé » ne se cherche plus, il se
+  regarde naître. C'est la forme exacte des deux seuls survivants de la base (Law Ruler :
+  minimum 3 sièges ; Volgistics : tous les modernes en devis), mais en temps réel.
+- **C'est l'inverse du tueur n°1.** 60 des 125 dossiers morts documentés (48 %) meurent sur
+  un occupant gratuit ou à prix plancher. Ici, **l'occupant gratuit vient de disparaître** —
+  le mécanisme qui tue le pipeline devient le mécanisme qui l'alimente.
+- **Le palier de prix est donné d'avance** : les orphelins d'UptimeRobot payaient 8 $ et
+  refusent 34 $. Tu connais le montant abandonné, la douleur, et la date.
+- **Le canal et la preuve de paiement sont au même endroit** : le fil de protestation daté.
+- **Ça sert l'objectif 10k** : le bundling IA déplace les outils de ~20 $ vers 50-80 $ par
+  siège. Un segment orphelin n'est jamais à 9 $.
+
+⚠️ Ne confonds pas avec la requête « [SaaS] shutting down / sunset » de ta recherche libre.
+Un sunset est **rare**, et le système s'est déjà brûlé dessus : le dossier Delighted
+(2026-09-11) a été inséré sur « arrêt annoncé le 30 juin 2026 », date **déjà passée** à
+l'insertion. Une hausse de prix est dix à cinquante fois plus fréquente qu'un sunset.
+
+**Méthode — les trackers sont des POINTEURS, la page de l'éditeur est la PREUVE**
+(même doctrine que les listicles, section suivante) :
+1. Dépouille les traqueurs de changements tarifaires (`getpricepulse.com`,
+   `toolrelief.com`, et tout équivalent que tu découvres — ajoute-le en `sources`). Tu y
+   prends des **noms d'outils et des dates**, JAMAIS un chiffre à recopier en base.
+2. Requêtes libres à faire tourner chaque jour, en anglais :
+   « [outil] price increase 2026 » · « [outil] removed free plan » · « [outil] alternative
+   after price increase » · « we're leaving [outil] » · « [catégorie] free tier discontinued ».
+3. **PREUVE obligatoire, deux URLs** : (a) la page de prix ou l'annonce/changelog de
+   l'éditeur, lue, qui montre le palier supprimé ou le nouveau prix ; (b) un fil de
+   protestation **daté** (Reddit, Hacker News, forum officiel, avis récents) qui prouve que
+   des payeurs existent et qu'ils sont dehors. Sans (a), tu n'as rien.
+4. **Jambe 0** : le prix que les orphelins PAYAIENT est une preuve de paiement au sens de la
+   constitution. Étiquette :
+   `"traction": {"statut": "PROUVÉ", "type_preuve": "segment_orphelin", "preuve_url": "…"}`
+   et note dans `preuve_traction_us` l'ancien palier ET le nouveau.
+5. `PALIER (kiosque)` = **le nouveau prix de l'incumbent**, pas l'ancien : c'est lui qui dit
+   à quel étage le trou s'est ouvert.
+
+**Garde — ce qui n'est PAS une opportunité** : un éditeur qui monte ses prix alors qu'il
+reste le seul à faire le job à ce niveau. Ce qui compte est l'**écart** entre le palier
+abandonné et le nouveau plancher de la catégorie : s'il existe déjà un concurrent
+self-serve dans cet écart, le trou est fermé avant d'être ouvert. C'est la ligne
+`PLANCHER (kiosque)` qui tranche, avec la méthode habituelle — chercher le JOB, pas les
+alternatives du produit.
+
+## LES MARCHÉS DE REVENTE — une méthode, pas une tranche de carte (2026-09-14)
+
+Acquire.com, Flippa, Empire Flippers. **Le vendeur y publie son chiffre d'affaires
+récurrent** : c'est la preuve de paiement la plus forte qui existe, plus forte qu'un
+compteur d'avis, parce qu'elle est chiffrée et qu'elle engage le vendeur.
+
+**Pourquoi le terrain `empireflippers` a produit 0 lead début septembre, et ce qui change.**
+Il avait été traité comme un catalogue de catégories, avec des tranches de carte — or ce
+n'est pas un catalogue, c'est un **flux d'annonces individuelles**. Une tranche « catégorie
+SaaS » n'y désigne rien de stable à dépouiller. Donc :
+
+- **Passage HEBDOMADAIRE, pas de tranche `carte_produits`.** Une fois par semaine, une passe
+  sur les annonces SaaS récentes ; le reste du temps, ce terrain ne consomme rien.
+- **Ce que tu y prends n'est PAS l'entreprise à vendre** — tu n'achètes rien. Tu y prends la
+  **preuve qu'un job précis a des clients payants à un prix connu**. Une annonce à 4 000 $ de
+  MRR pour 90 clients te donne le job, le palier (~45 $) et la demande, d'un coup. Le produit
+  que tu construiras est le tien.
+- **PIÈGE D'ACCÈS, vérifié le 2026-09-14** : `flippa.com/search` est rendu côté client. Un
+  WebFetch y « réussit » et rend le GABARIT — littéralement `{{ listing.price_text }}` et
+  `{{listing.multiple}}x Profit` — sans aucun chiffre. C'est la même classe de piège que la
+  page produit Product Hunt journalisée le 2026-09-14 : un petit modèle fabrique une réponse
+  plausible au lieu de signaler le vide. **Ne fais jamais entrer en base un chiffre venu d'un
+  WebFetch sur ces pages.** Utilise `scripts/fc.sh scrape` (1 crédit, rendu JS) sur la page
+  de recherche, ou ouvre les pages d'annonce individuelles et vérifie qu'un chiffre réel s'y
+  affiche. Mur persistant → journalise et passe, comme pour Reddit.
+- **Garde, et elle est sérieuse** : une affaire est souvent en vente parce qu'elle décline.
+  L'annonce prouve la **demande passée**, pas la santé du produit. Cherche dans l'annonce la
+  tendance (MRR en hausse ou en baisse) et note-la ; le prix demandé et le multiple sont des
+  **prétentions du vendeur**, pas des faits — ils n'entrent jamais en base comme preuve.
+- Étiquette : `"traction": {"statut": "PROUVÉ", "type_preuve": "mrr_annonce_revente", "preuve_url": "…"}`.
 
 ## Listicles à chiffres non sourcés
 

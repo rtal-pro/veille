@@ -26,9 +26,23 @@ Pour chacun, remplis `score_atelier` (jsonb) :
  "support_attendu": "faible|moyen|lourd",
  "dependances": ["API Colissimo", "..."],
  "mrr_12mois_realiste": "fourchette prudente si estimable, sinon 'non estimable'",
+ "prix_envisage_mois": 149,
+ "clients_pour_10k": 67,
  "note_sur_10": 7,
  "verdict_office_hours": "BUILD | BUILD APRÈS TEST | FUIS"}
 ```
+
+**`clients_pour_10k` = 10000 / `prix_envisage_mois`, arrondi.** Ce champ existe parce que
+l'objectif du lecteur est **10 000 $/mois en self-serve**, et qu'un dossier peut être
+excellent et hors sujet. Il commande le verdict :
+- **au-dessus de 200 clients** → le verdict ne peut pas être `BUILD` : écris `BUILD APRÈS
+  TEST` au mieux, et dis en une phrase ce qu'il faudrait changer (prix, segment, offre) pour
+  que le chiffre descende. Un produit à 29 $/mois demande 345 clients : ce n'est pas un
+  échec du produit, c'est une inadéquation à l'objectif, et le lecteur doit la lire.
+- **sous 70 clients** → dis-le explicitement dans le mémo, c'est le profil rare.
+Mesure du 2026-09-14 : les trois seuls dossiers jamais scorés plafonnent à 2 000, 2 000 et
+4 000 $/mois de borne HAUTE à 12 mois. Aucun n'atteint l'objectif. Ce champ est là pour que
+ça se voie dans le mémo au lieu de se découvrir après le build.
 
 **Présentation** : un survivant avec `date_run = CURRENT_DATE - 0..2` est un **GO du
 jour**. Un survivant plus ancien qui apparaît ici (ressuscité, backlog jamais scoré)

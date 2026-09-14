@@ -29,6 +29,20 @@ ORDER BY date_run ASC
 LIMIT 5;
 ```
 
+**Ordre de priorité, et il sert un chiffre précis.** L'objectif du lecteur est
+**10 000 $/mois en self-serve**. À 29 $/mois il lui faut 345 clients ; à 299 $/mois il lui
+en faut 33. À traction égale, **instruis d'abord les dossiers dont la ligne
+`PALIER (kiosque)` est haute (≥ 150 $/mois), puis moyenne, puis basse.** Tu n'écartes pas
+un dossier parce qu'il est bon marché — tu le passes après. Mesure du 2026-09-14 : aucun
+dossier de toute l'histoire de la base n'a une borne haute de MRR à 12 mois au-dessus de
+4 000 $/mois, et le prix médian du produit source chez les deux survivants est de 9 $.
+
+Le tri du plancher (ci-dessous, 2 min par dossier) doit te permettre d'en REGARDER plus
+que tu n'en instruis : passe en revue 8 à 10 leads, écarte en 2 minutes ceux dont le
+plancher est à zéro, et consacre tes 45 minutes aux survivants de ce tri. Mesure du
+2026-09-14 : 13 leads entrent par jour, 4 sont instruits, et 12 dossiers du vivier
+attendent depuis 5 à 8 jours sans avoir jamais été regardés.
+
 Choisis-en **jusqu'à 4** — et **jusqu'à 6-7 si le vivier de leads dépasse 20** (fraîcheur,
 diversité de secteurs, qualité de la source), **dont 1-2 issus des retours au vivier**
 s'il y en a. Vivier profond = sélection plus riche : profites-en, sans jamais sacrifier
@@ -50,6 +64,38 @@ sont trois lignes de 2019 — passe `traction` à `RÉFUTÉ`, écarte, et journa
 idée faible. Un lead sans `source_traction_us` ne s'instruit pas non plus : rétrograde-le
 en `lead` avec une note, il n'aurait pas dû entrer.
 
+**Cas particulier, et il n'est pas rare — l'URL pointe une page de CATÉGORIE** (par ex.
+`capterra.com/nonprofit-software` au lieu de `capterra.com/p/97513/DonorSnap/`) : 25 des
+120 leads insérés depuis le pivot sont dans ce cas. **N'écarte pas pour autant.** Contrôle
+du 2026-09-14 : 5 fiches rouvertes, 5 chiffres conformes au chiffre près — la preuve
+existe, c'est la citation qui est fausse. Va ouvrir la fiche du produit, **corrige
+`source_traction_us`** (`UPDATE prospection_clones SET source_traction_us='…' WHERE id=…`),
+et journalise le défaut de récolte. Tu ne passes `traction` à `RÉFUTÉ` que si les chiffres
+ne s'y retrouvent pas.
+
+**Deuxième geste, 2 minutes : lis la ligne `PLANCHER (kiosque)` en tête de `concurrents`.**
+Elle nomme l'outil le moins cher qui fait le même job en self-serve, avec son prix et son
+URL. **Si la ligne dit « non trouvé », ne conclus PAS qu'il n'y en a pas** : refais la
+recherche toi-même à la bonne méthode — le JOB en mots simples (« recipe costing software
+pricing »), jamais « alternative à <produit source> » — et OUVRE les pages de prix des deux
+ou trois moins chers. Le 2026-09-09 ce raccourci a fait écrire « l'occupant plancher
+N'EXISTE PAS » sur le dossier 88, alors que Recipe Cost Calculator vendait le job complet à
+107,50 $/mois et Freecost gratuitement. Un plancher déclaré absent à tort est la seule
+erreur de ce système qui coûte des semaines de build.
+Si ce plancher est gratuit ou quasi gratuit **ET** couvre le même job-to-be-done que
+ton candidat, le coin « segment délaissé » est mort avant d'être instruit : ouvre l'URL
+(elle peut être fausse, périmée, ou porter sur un autre job), et si elle tient, écarte en
+2 minutes au lieu de 15 — `argument_decisif` = le plancher lu et son URL,
+`condition_resurrection` = « si <plancher> ferme son palier gratuit ou cesse de couvrir
+<job> ». Ce n'est PAS le retour du « marché encombré » interdit plus bas : le test est
+nominatif — un produit, un prix, une URL — pas une impression de densité, et il ne
+s'applique qu'au coin 2.
+Mesure du 2026-09-14 : 60 des 125 dossiers morts documentés le sont sur ce motif exact —
+Stock Sync 7 $ contre Thrive 129 $, SiteCam 29 $ contre CompanyCam, TrackMyVendor gratuit
+contre myCOI, Innago gratuit contre Rentec, Yardbook gratuit contre CLIPitc. Le temps que
+tu gagnes ainsi ne retourne pas au budget : il va au dossier suivant. C'est ce qui doit
+faire monter ton débit au-dessus de 4 instructions par jour, pas une laisse plus longue.
+
 Puis instruis les trois jambes restantes, dans l'ordre du coût :
 
 1. **ANGLE DÉFENDABLE** (constitution, jambe 1 — remplace le « trou FR » depuis le
@@ -61,6 +107,22 @@ Puis instruis les trois jambes restantes, dans l'ordre du coût :
    `condition_resurrection`, `statut_pipeline='ecarte'`. STOP pour ce candidat.
    **Un coin argumenté mais non lu reste HYPOTHÈSE.** C'est la garde qui empêche ce
    critère, plus souple que l'ancien, de devenir un tampon GO automatique.
+
+   **Le coin « segment délaissé » se prouve en DEUX temps, et c'est le second qu'on
+   oublie.** (a) Le leader REFUSE le segment, et le refus est PUBLIÉ : minimum de N sièges,
+   aucun prix public, frais d'installation, contrat annuel, page marketing sans bouton
+   d'inscription. (b) **Aucun challenger low-cost en self-serve n'occupe déjà le trou que
+   ce refus ouvre.** Le (a) seul ne vaut rien, et c'est mesuré : les 11 et 12/09, myCOI
+   (200 certificats minimum), CompanyCam (3 sièges minimum) et Statii (130 £/utilisateur)
+   portaient chacun le meilleur signal (a) de leur journée — les trois sont morts sur le
+   (b), face à TrackMyVendor, SiteCam et MRPeasy. À l'inverse, les deux seuls survivants de
+   la base tiennent précisément parce que le (b) est VIDE : Law Ruler (aucun outil dédié
+   sous 50 $/mois, cherché activement par le Contre-avocat) et Volgistics (tous les
+   modernes en devis + contrat annuel + 500-10 000 $ d'implémentation).
+   Quand tu trouves un (b) vide, écris **pourquoi** il l'est et pourquoi ça dure : un trou
+   bon marché encore vide en 2026 signale le plus souvent un segment qui ne paie pas — et
+   c'est exactement la jambe WTP non prouvée de Law Ruler. Un désintérêt durable des
+   challengers est le seul fossé qu'un solo puisse avoir ; dis lequel.
    ⚠️ **Ne tue plus sur** : « un acteur français le fait déjà », « le marché est
    encombré », « un guichet public gratuit existe en France », « l'obligation va être
    absorbée ». Ces motifs ont produit 40 morts sur 43 dossiers pour 1 seul GO.
@@ -72,7 +134,9 @@ Puis instruis les trois jambes restantes, dans l'ordre du coût :
 
 Remplis TOUS les champs utiles : `statut_jambes` (JSON strict, clé `angle` et non plus
 `trou_fr`), **`preuve_angle`**, **`concurrents`** (colonnes renommées par `sql/011` — les
-anciens noms n'existent plus), `pricing_us`, `pricing_envisage`, `canal`, `cible_client`,
+anciens noms n'existent plus ; **conserve la ligne `PLANCHER (kiosque)` en tête** et ajoute
+les tiens en dessous, elle est relue par le Fossoyeur et le Superviseur), `pricing_us`,
+`pricing_envisage`, `canal`, `cible_client`,
 `risque_principal`, `sources` (jsonb d'URLs), `argument_decisif`, `verdict` mécanique.
 
 ## Livraison

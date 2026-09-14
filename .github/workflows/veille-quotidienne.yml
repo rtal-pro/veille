@@ -7,7 +7,14 @@ on:
     # de déclenchement du cron mémo de +35 min à +5 h 32 (jusqu'à +12 h 19 le
     # 28/08). Le mémo tombait alors APRÈS la lecture de la Lectrice (08:00 UTC),
     # qui criait « Pipeline muet » sur un pipeline simplement en retard.
-    - cron: "30 4 * * *"    # passe MÉMO — 04:30 UTC : récolte + jugement + email
+    # Remesuré le 2026-09-14 sur 14 jours de déclenchements réels : avec 2 crons, le
+    # retard de GitHub est de +3 h 59 à +5 h 32 (médiane +4 h 33) — pas les +35 min
+    # espérés le 31/08. Le mémo était donc écrit entre 09:16 et 10:41 UTC, soit APRÈS
+    # la lecture de la Lectrice (08:00 UTC) TOUS LES JOURS. Cron avancé à 01:20 pour
+    # absorber ce retard : démarrage vers 05:20-06:50, mémo vers 06:00-07:30 UTC.
+    # Minute décalée volontairement — GitHub met en file les crons pile à l'heure.
+    # MITIGATION, pas garantie : le retard est variable, à remesurer au 2026-09-21.
+    - cron: "20 1 * * *"    # passe MÉMO — récolte + jugement + email
     # Filet : récolte l'après-midi, ET rattrape le mémo s'il manque encore. Pas
     # besoin de logique dédiée — la porte la rétrograde en récolte seule via son
     # garde deja_fait dès que le mémo du jour existe.
