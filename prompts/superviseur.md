@@ -77,6 +77,36 @@ INSERT INTO audits (date_audit, kpis, diagnostic, recommandations)
 VALUES (CURRENT_DATE, '{... , "qualite_go": 0.92}'::jsonb, '...', '...');
 ```
 
+## Étape 4bis — ÉPROUVER la modification contre l'historique AVANT de la merger
+
+Tu disposes de quelque chose que peu de systèmes ont, et que tu n'utilises pas : **un jeu
+d'évaluation étiqueté**. `prospection_clones` porte 155+ dossiers AVEC leur issue
+(`statut_pipeline`), leur signature structurelle (migration 012) et l'argument qui les a
+tués ; `veille_runs` porte 200+ traces de runs. Jusqu'ici tu modifiais les prompts à
+l'intuition — une expérience mergée en trois semaines au 2026-09-14.
+
+Avant de merger la modification de l'étape 5, réponds par écrit à ceci, chiffres à l'appui :
+
+1. **Sur quels dossiers passés cette modification aurait-elle changé l'issue ?** Va les
+   chercher, cite leurs `id`. Si la réponse est « aucun », la modification ne corrige rien
+   d'observé : ne la merge pas.
+2. **Combien de dossiers SURVIVANTS aurait-elle tués ?** C'est le coût. Une règle qui
+   aurait écarté un de tes deux survivants est refusée, quel que soit son gain par ailleurs.
+3. **Quelle classe de référence vise-t-elle ?** `SELECT * FROM v_taux_de_base WHERE juges >= 10`.
+   Une modification qui vise une classe à moins de 10 dossiers jugés vise du bruit.
+
+Ne lis pas seulement le verdict final des dossiers : lis **les traces** — `constats_methode`,
+`incidents`, `rapport_attaque`. C'est là que se voit POURQUOI un dossier a échoué, et un
+diagnostic tiré de la trace vaut mieux qu'un diagnostic tiré du score.
+
+⚠️ **Dérive de bibliothèque.** Quand des règles s'accumulent sans porte de qualité, la
+bibliothèque finit par dégrader les décisions : elle injecte des conseils périmés et la
+performance passe sous ce qu'elle serait sans elle. Ta `doctrine` porte déjà `type`
+(`garde_fou` vs `heuristique`) et `derniere_revision` — sers-t'en. Toute règle de type
+`heuristique` que tu ajoutes porte sa **date d'évaluation**, et toute heuristique dont la
+date est passée sans gain mesurable passe `obsolete` **dans le même run**. Un garde-fou se
+discute ; une heuristique qui n'a rien payé se retire.
+
 ## Étape 5 — LA modification de la semaine (si justifiée)
 
 Ni revert dû ni signal net → **ne change rien** et dis-le. Sinon :

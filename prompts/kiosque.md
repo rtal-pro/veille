@@ -449,6 +449,71 @@ self-serve dans cet écart, le trou est fermé avant d'être ouvert. C'est la li
 `PLANCHER (kiosque)` qui tranche, avec la méthode habituelle — chercher le JOB, pas les
 alternatives du produit.
 
+## LES POSTES OUVERTS — la forme de jambe 0 qui ne demande aucun produit (2026-09-15)
+
+**Une entreprise qui recrute pour faire un travail répétitif DÉPENSE DÉJÀ pour ce
+travail.** Le recrutement révèle l'intention et la pression opérationnelle en même temps :
+on n'ouvre pas un poste pour un problème qu'on n'a pas. Et depuis les lois de transparence
+salariale, la fourchette est souvent **publique sur l'annonce elle-même**.
+
+Pourquoi cette forme est la plus précieuse des cinq : **elle n'exige pas qu'un logiciel
+existe.** Les quatre autres partent d'un produit, d'une prestation ou d'un incumbent —
+donc d'un marché déjà formé, dont tu ne prendras qu'une fraction. Un poste ouvert désigne
+un boulot que quelqu'un paie **et que personne ne lui vend**. C'est le seul endroit de
+tout ce système où « personne ne le fait encore » cesse d'être une intuition invérifiable
+pour devenir un fait lisible sur une page.
+
+**Méthode.**
+1. Requêtes sur les sites d'emploi et les pages carrières, en anglais : « [tâche
+   répétitive] coordinator », « [tâche] specialist », « manual [tâche] », et le vocabulaire
+   des annonces elles-mêmes (« reconciling », « compiling », « chasing », « manually
+   entering », « copy-pasting », « tracking in a spreadsheet »). Les verbes de l'annonce
+   valent mieux que les intitulés de poste.
+2. **Le signal n'est pas UNE annonce, c'est la RÉCURRENCE** : deux ou trois entreprises
+   DISTINCTES qui recrutent pour la même mission étroite dans une fenêtre de ~90 jours.
+   Une seule annonce est la lubie d'une entreprise ; trois sont un marché.
+3. **Preuve** : l'URL de l'annonce + sa fourchette de salaire. Note dans
+   `preuve_traction_us` le coût humain annualisé (« 3 postes à 48-58 k$ = ~150 k$/an de
+   dépense humaine sur ce boulot »). C'est une magnitude de douleur lue, pas déduite.
+4. `type_preuve: "poste_ouvert"`.
+
+**La garde, et elle est sérieuse : une offre d'emploi prouve qu'on paie UN HUMAIN, pas
+qu'on achèterait un LOGICIEL.** Ces deux choses ne sont pas la même, et le budget salarial
+ne se convertit pas mécaniquement en budget logiciel. La jambe 0 est franchie — de l'argent
+circule, c'est lu — mais la jambe WTP reste ENTIÈRE et ne sera pas plus facile pour autant.
+Ne déduis JAMAIS un prix d'un salaire, et n'écris jamais « donc ils paieraient X ».
+Deuxième garde : une annonce peut décrire un poste large dont ta tâche n'est qu'un dixième.
+Cite la phrase de l'annonce qui porte la mission, pas l'intitulé.
+
+## LA CHASSE INVERSÉE — partir de ce qui a survécu (2026-09-15)
+
+Tout le reste de ce prompt te fait **ratisser puis trier**. Ceci fait l'inverse : partir
+d'une configuration dont on SAIT qu'elle survit, et aller la chercher ailleurs.
+
+```sql
+SELECT plancher, forme_trou, vente_modernes, palier, juges, survivants, taux_survie_pct
+FROM v_taux_de_base WHERE juges >= 10 AND survivants > 0
+ORDER BY taux_survie_pct DESC LIMIT 3;
+```
+
+**Si la requête ne rend rien, saute cette section** — c'est le cas tant que le Fossoyeur
+n'a pas rattrapé l'historique, et chasser sur une configuration à trois dossiers serait
+suivre du bruit avec méthode.
+
+Quand elle rend quelque chose, traduis la configuration en requêtes. Exemple avec celle
+des deux survivants actuels — *plancher vide · refus publié · modernes sur devis* :
+« [catégorie] minimum 3 users pricing », « [catégorie] software request a demo no pricing »,
+« best [job] software for solo », « [catégorie] enterprise only small business alternative ».
+Tu cherches un éditeur qui **nomme un segment dans son marketing et le refuse dans sa
+grille**, dans un marché que la base n'a jamais visité.
+
+Pourquoi ça marche : les ruptures viennent du transfert d'une configuration d'un domaine à
+un autre par **alignement structurel**, pas par ressemblance de surface. Tes deux
+survivants n'ont aucun secteur commun — bénévolat associatif, intake juridique — et une
+structure identique. Le secteur ne transfère rien ; la structure, si.
+Garde : une configuration gagnante n'est pas un blanc-seing. Le dossier trouvé par chasse
+inversée entre par le chemin normal, jambe 0 d'abord, comme tous les autres.
+
 ## LES MARCHÉS DE REVENTE — une méthode, pas une tranche de carte (2026-09-14)
 
 Acquire.com, Flippa, Empire Flippers. **Le vendeur y publie son chiffre d'affaires

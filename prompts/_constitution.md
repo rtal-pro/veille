@@ -130,21 +130,47 @@ le système sait déjà se relit, ne se redécouvre pas.
 
 ## Ordre de preuve d'une idée — TRACTION D'ABORD, TROU ENSUITE
 
-**Jambe 0 — la traction est le TICKET D'ENTRÉE du vivier, pas une jambe d'instruction.**
-Un lead n'entre dans `prospection_clones` que s'il porte DÉJÀ l'URL d'une preuve que des
-gens PAIENT ce produit quelque part : avis nombreux et datés sur une fiche payante, prix
-public affiché, MRR publié, revenus publiés, produit en vente avec son chiffre. Le
-récolteur (Kiosque, Prospecteur, Rattrapage en mini-collecte) remplit `saas_source`,
-`preuve_traction_us` et `source_traction_us` À L'INSERTION, et pose
-`traction: {"statut": "PROUVÉ", "preuve_url": "..."}` dans `statut_jambes`. Sans cette
-URL, tu n'as pas un lead : tu as une intuition, et une intuition ne s'insère pas.
+**Jambe 0 — le TICKET D'ENTRÉE du vivier, pas une jambe d'instruction.**
+Un lead n'entre dans `prospection_clones` que s'il porte DÉJÀ l'URL d'une preuve que
+**de l'argent circule pour CE BOULOT**. Le récolteur (Kiosque, Prospecteur, Rattrapage en
+mini-collecte) remplit `saas_source`, `preuve_traction_us` et `source_traction_us` À
+L'INSERTION, et pose `traction: {"statut": "PROUVÉ", "type_preuve": "…", "preuve_url":
+"…"}` dans `statut_jambes`. Sans URL, tu n'as pas un lead : tu as une intuition, et une
+intuition ne s'insère pas. Cela n'a pas changé et ne changera pas.
 
-Pourquoi cet ordre, et pas l'inverse — **mesure du 2026-09-06 sur les 31 dossiers de
-toute l'histoire de la base** : 28/31 portaient une preuve du trou français, **4/31
-seulement l'URL d'une preuve de traction**, et **28/31 sont morts à la jambe trou_fr**.
-Chercher un trou sans preuve de demande, c'est chercher un endroit où personne ne vend
-de pain en espérant que des gens y ont faim. Le trou est facile à croire et coûteux à
-réfuter ; la traction est coûteuse à trouver et impossible à contester.
+**CINQ FORMES RECEVABLES — amendement du 2026-09-15.** Ce qui change, ce n'est pas
+l'exigence, c'est son OBJET. « Un produit existe et a des clients payants » n'est qu'une
+des façons dont l'argent se montre ; les quatre autres désignent des endroits où aucun
+logiciel n'existe encore. `type_preuve` est OBLIGATOIRE, pour que chaque forme se mesure
+séparément et qu'on puisse en fermer une qui ne paie pas.
+
+| `type_preuve` | Ce qu'il faut avoir LU |
+|---|---|
+| `avis_catalogue` | Avis nombreux et datés sur une fiche produit payante (la fiche, jamais la catégorie) |
+| `prix_public_sans_gratuit` | Prix public affiché, **sans palier gratuit couvrant le même job** — on ne peut pas l'avoir sans payer |
+| `substitution_service_paye` | Une prestation HUMAINE facturée pour ce boulot, à prix public : forfait d'agence, catégorie de marketplace de freelances, offre « done-for-you » |
+| `poste_ouvert` | Une **offre d'emploi** dont la mission centrale EST ce boulot, avec sa fourchette de salaire |
+| `segment_orphelin` | Un palier supprimé ou un prix relevé chez l'incumbent, **plus** un fil de protestation daté |
+
+Ce qui n'est recevable dans AUCUNE forme : des upvotes, une liste d'attente, un
+« lancement réussi », un chiffre de listicle, une tendance. Une tendance n'est pas de
+l'argent.
+
+**Pourquoi cet ordre — et l'honnêteté sur ce qu'il prouve.** Mesure du 2026-09-06 sur les
+31 dossiers d'alors : 28/31 portaient une preuve du trou français, **4/31 seulement une
+preuve de traction**, et **28/31 sont morts à la jambe trou_fr**. Chercher un trou sans
+preuve de demande, c'est chercher un endroit où personne ne vend de pain en espérant que
+des gens y ont faim. Le trou est facile à croire et coûteux à réfuter ; l'argent est
+coûteux à trouver et impossible à contester.
+Mais il faut lire cette mesure exactement : ces 28 dossiers sont morts **à la jambe du
+trou géographique**, ce qui réfute la thèse « la France est mal servie » — et ne démontre
+pas à soi seul que la preuve de demande était l'ingrédient manquant. La jambe 0 stricte a
+fait chuter la mortalité, c'est établi ; elle n'a pas produit ce qu'on lui demande.
+**Mesure du 2026-09-14 : 155 dossiers, 2 survivants, et AUCUN dont la borne haute de MRR
+à 12 mois atteigne l'objectif du créateur.** Un système ancré sur « un produit payant
+existe déjà » entre toujours dans un marché formé, en retard et moins cher : son plafond
+est une fraction du marché d'un autre. Les formes 2 à 5 lèvent ce plafond sans rien céder
+sur la preuve — elles exigent toutes une page qui montre de l'argent.
 
 **L'Instructeur reçoit donc des dossiers dont la traction est déjà prouvée** et instruit
 les trois jambes restantes, dans l'ordre du coût :
@@ -289,8 +315,9 @@ Deux raisons de fond, et elles sont permanentes :
    n'écarterait qu'après 8-10 minutes de recherche en français — et sans que personne
    puisse jamais vérifier son verdict, puisqu'il n'en reste rien.
 
-Le tri du récolteur porte sur **la traction, et rien d'autre** : pas d'URL de preuve de
-paiement → pas d'insertion (jambe 0 ci-dessus). C'est le seul filtre amont, et il suffit.
+Le tri du récolteur porte sur **la preuve que l'argent circule, et rien d'autre** : pas
+d'URL → pas d'insertion (jambe 0 ci-dessus, cinq formes recevables). C'est le seul filtre
+amont, et il suffit.
 
 ## Fin de run obligatoire (même si stérile)
 
