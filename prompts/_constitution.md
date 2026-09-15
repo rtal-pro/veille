@@ -138,7 +138,7 @@ L'INSERTION, et pose `traction: {"statut": "PROUVÉ", "type_preuve": "…", "pre
 "…"}` dans `statut_jambes`. Sans URL, tu n'as pas un lead : tu as une intuition, et une
 intuition ne s'insère pas. Cela n'a pas changé et ne changera pas.
 
-**CINQ FORMES RECEVABLES — amendement du 2026-09-15.** Ce qui change, ce n'est pas
+**SIX FORMES RECEVABLES — amendement du 2026-09-15.** Ce qui change, ce n'est pas
 l'exigence, c'est son OBJET. « Un produit existe et a des clients payants » n'est qu'une
 des façons dont l'argent se montre ; les quatre autres désignent des endroits où aucun
 logiciel n'existe encore. `type_preuve` est OBLIGATOIRE, pour que chaque forme se mesure
@@ -151,6 +151,7 @@ séparément et qu'on puisse en fermer une qui ne paie pas.
 | `substitution_service_paye` | Une prestation HUMAINE facturée pour ce boulot, à prix public : forfait d'agence, catégorie de marketplace de freelances, offre « done-for-you » |
 | `poste_ouvert` | Une **offre d'emploi** dont la mission centrale EST ce boulot, avec sa fourchette de salaire |
 | `segment_orphelin` | Un palier supprimé ou un prix relevé chez l'incumbent, **plus** un fil de protestation daté |
+| `clients_en_colere` | Un produit payant dont des clients **nommés** se plaignent publiquement d'une DÉGRADATION datée (support, panne, régression, paiements bloqués) — ils paient au moment où ils se plaignent, c'est là qu'est la preuve |
 
 Ce qui n'est recevable dans AUCUNE forme : des upvotes, une liste d'attente, un
 « lancement réussi », un chiffre de listicle, une tendance. Une tendance n'est pas de
