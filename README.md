@@ -8,7 +8,7 @@ avec ton abonnement **Claude Max** — aucun PC, aucune clé API, aucune facture
 ## Architecture
 
 ```
-04:30 UTC ── preflight (secrets) ─► migrations (000→006, psql -1) ─► porte (verdict du jour ? passe mémo ou récolte ?)
+01:20 UTC ── PORTE (1 job : secrets ─► migrations 000→006, psql -1 ─► verdict du jour, passe mémo ou récolte ?)
  PASSE MÉMO   ├─ KIOSQUE (sonnet-5) ─────┐  lit comme un passionné, mine idées + sources citées
               └─ PROSPECTEUR (sonnet-5) ─┤  fore un secteur NAF vierge → sources neuves
                                          ▼
@@ -19,8 +19,8 @@ avec ton abonnement **Claude Max** — aucun PC, aucune clé API, aucune facture
                RATTRAPAGE (sonnet-5) ───►  aucun survivant récent (fenêtre 3 j) ? 2e vague
                                          ▼
                ATELIER (sonnet-5) ──────►  score solo-dev + mémo quotidien → 📧 (fallback 🛑 issue)
-15:00 UTC ── PASSE FILET : récolte (Kiosque + Prospecteur) ; rattrape aussi le jugement + le mémo
-              s'ils manquent encore — la porte la rétrograde en récolte seule si le verdict du jour existe
+15:00 UTC ── PASSE FILET : rejoue TOUTE la journée (récolte + jugement + mémo) si elle n'est pas bouclée ;
+              sinon la porte éteint tout — récolte comprise depuis le 2026-09-21 : ~1 min de runner, 0 agent
 09:30 UTC ── VIGIE (garde-fou, sans LLM) : pipeline parti aujourd'hui ? + keepalive 45 j
 push main ── GENDARME (sans LLM) : valider.sh sur le diff poussé → revert auto si non conforme
 sam. 13:00 ── SUPERVISEUR (sonnet-5) ──►  audit KPIs + runs GitHub → 1 PR d'amélioration/sem. → 📧
@@ -104,7 +104,7 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | Secret | Valeur |
 |---|---|
 | `CLAUDE_CODE_OAUTH_TOKEN` | le token de l'étape 4 |
-| `SUPABASE_DB_URL` | chaîne de connexion Postgres **« Session pooler »** de ton projet Supabase (Dashboard → Connect), rôle `postgres` (ton mot de passe). ⚠️ Prends bien le *pooler* (IPv4) : l'hôte direct `db.xxx.supabase.co` est IPv6-only et échoue depuis GitHub Actions. Réservé aux jobs d'infra déterministes (`migrations`, `porte`, `setup.yml`) — jamais lu par un agent LLM. |
+| `SUPABASE_DB_URL` | chaîne de connexion Postgres **« Session pooler »** de ton projet Supabase (Dashboard → Connect), rôle `postgres` (ton mot de passe). ⚠️ Prends bien le *pooler* (IPv4) : l'hôte direct `db.xxx.supabase.co` est IPv6-only et échoue depuis GitHub Actions. Réservé aux jobs d'infra déterministes (`porte`, `setup.yml`) — jamais lu par un agent LLM. |
 | `SUPABASE_DB_URL_AGENT` | même chaîne pooler, mais avec l'utilisateur `agent_veille.<project-ref>` — le rôle restreint (pas de DELETE, pas de DDL) que tu généreras à l'**étape 6 ter**. Reviens créer ce secret une fois cette étape faite ; c'est lui que lisent tous les jobs agents (mappé sur l'env `SUPABASE_DB_URL` qu'attendent les prompts). |
 | `GMAIL_USER` | ton adresse Gmail |
 | `GMAIL_APP_PASSWORD` | un **mot de passe d'application** Gmail (myaccount.google.com → Sécurité → Validation en 2 étapes → Mots de passe des applications) |
@@ -203,9 +203,30 @@ en plus, pas un rouage.
 
 ## Budget & réglages
 
-- **Minutes GitHub** : repo public = illimitées sur les runners standard. Les
-  `timeout-minutes` par job (3 à 50 min) sont des garde-fous anti-emballement, pas des
-  cibles : un agent qui a fini en 12 min s'arrête en 12 min.
+- **Minutes GitHub** : repo public = illimitées et non facturées sur les runners
+  standard — l'API de facturation renvoie `billable.UBUNTU.total_ms: 0` sur tous les
+  runs. Les `timeout-minutes` par job (3 à 50 min) sont des garde-fous anti-emballement,
+  pas des cibles : un agent qui a fini en 12 min s'arrête en 12 min.
+
+  Gratuites ne veut pas dire négligeables — **si ce repo passait en privé, la note
+  tomberait tout de suite**. Relevé du 2026-09-21, en minutes facturables (GitHub arrondit
+  CHAQUE job à la minute supérieure) :
+
+  | Passe | Détail | Minutes |
+  |---|---|---|
+  | Mémo (run `35568391153`) | porte 1 + prospecteur 4 + kiosque 12 + instructeur 10 + contre-avocat 2 + rattrapage 14 + atelier 4 | **47** |
+  | Filet (run `35647201102`) | porte 1 — récolte et jugement éteints si la journée est bouclée | **1** |
+  | Garde-fou (vigie) | dead-man's switch + keepalive | **1** |
+  | | **par jour** | **49** |
+
+  Soit **~1 470 min/mois**. Avant les deux correctifs du 2026-09-21 (garde de récolte sur
+  la passe filet, et fusion des 3 jobs d'infra en 1), c'était **75 min/jour, ~2 250/mois**
+  — au-dessus des 2 000 min incluses d'un compte Free sur repo privé.
+
+  **~90 % de ces minutes sont du temps d'agent.** Le runner est facturé pendant que
+  Claude réfléchit : couper des minutes GitHub et couper du quota Claude, c'est le même
+  geste. Les leviers restants sont donc les mêmes — `--max-turns`, la fenêtre de
+  stand-down du Rattrapage (le job le plus cher : 14 min), ou la cadence de récolte.
 - **Modèles épinglés** (décision explicite, ajustable seulement par le Superviseur via
   `--model`/`--max-turns`, jamais par les autres agents) :
 

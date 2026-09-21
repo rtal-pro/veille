@@ -48,9 +48,29 @@ env:
   FIRECRAWL_RESERVE: ${{ vars.FIRECRAWL_RESERVE || '40' }}
 
 jobs:
-  preflight:
+  # SOCLE — préflight + migrations + porte en UN SEUL job (fusionnés le
+  # 2026-09-21). C'étaient trois jobs séparés de 4 s, 27 s et 4 s : GitHub
+  # facture chaque job à la minute supérieure, donc 3 minutes pour 35 secondes
+  # de travail, plus trois démarrages de runner, deux checkouts et deux
+  # `apt-get install postgresql-client`. Fusionnés : 1 minute, un seul
+  # checkout, un seul apt-get (le step porte réutilise le psql installé par le
+  # step migrations). Gain 2 min/passe, soit 4 min/jour sur les deux crons.
+  # La clé reste `porte` À DESSEIN : tout l'aval référence `needs.porte.*`, et
+  # scripts/garde_fou_decide.sh ne connaît que les noms des 5 jobs d'agents et
+  # `instructeur` — renommer n'aurait servi qu'à élargir le diff.
+  porte:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
+    outputs:
+      deja_fait: ${{ steps.check.outputs.deja_fait }}
+      memo: ${{ steps.check.outputs.memo }}
+    env:
+      # Job d'infra déterministe (pas un agent) : lit avec le rôle OWNER, qui
+      # bypass RLS. Évite le fail-open silencieux si la policy agent_veille
+      # venait à manquer (la requête agent renverrait 0 lignes sans erreur
+      # → deja_fait=0 → mémo dupliqué au run de reprise).
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      FORCER: ${{ inputs.forcer_jugement || 'false' }}
     steps:
       - name: Vérifier les secrets
         env:
@@ -68,12 +88,6 @@ jobs:
           [ -n "$S_GU" ]    || { echo "::error::GMAIL_USER manquant"; ok=0; }
           [ -n "$S_GP" ]    || { echo "::error::GMAIL_APP_PASSWORD manquant"; ok=0; }
           [ "$ok" = "1" ]
-
-  migrations:
-    needs: [preflight]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
       - uses: actions/checkout@v4
       - name: Appliquer les migrations (idempotentes, transactionnelles)
         env:
@@ -85,23 +99,6 @@ jobs:
             echo "===== $f ====="
             psql "$DB_OWNER" -v ON_ERROR_STOP=1 -1 -f "$f"
           done
-
-  porte:
-    needs: [migrations]
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    outputs:
-      deja_fait: ${{ steps.check.outputs.deja_fait }}
-      memo: ${{ steps.check.outputs.memo }}
-    env:
-      # Job d'infra déterministe (pas un agent) : lit avec le rôle OWNER, qui
-      # bypass RLS. Évite le fail-open silencieux si la policy agent_veille
-      # venait à manquer (la requête agent renverrait 0 lignes sans erreur
-      # → deja_fait=0 → mémo dupliqué au run de reprise 11:00).
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      FORCER: ${{ inputs.forcer_jugement || 'false' }}
-    steps:
-      - uses: actions/checkout@v4
       - name: Verdict du jour ? Passe mémo ou récolte ?
         id: check
         run: |
@@ -129,7 +126,7 @@ jobs:
           echo "porte: deja_fait=$N schedule='$SCHED' memo=$MEMO"
 
   alerte-infra:
-    needs: [preflight, migrations, porte]
+    needs: [porte]
     if: ${{ failure() }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -253,8 +250,11 @@ jobs:
           claude_args: "--model claude-sonnet-5 --max-turns 110 --dangerously-skip-permissions"
 
   atelier:
-    needs: [preflight, porte, kiosque, prospecteur, instructeur, contre-avocat, rattrapage]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
+    needs: [porte, kiosque, prospecteur, instructeur, contre-avocat, rattrapage]
+    # `needs.preflight.result` est tombé avec la fusion : le step « Vérifier les
+    # secrets » vit maintenant DANS le job porte, donc porte == 'success'
+    # implique déjà que le préflight est passé.
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.memo == '1' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
