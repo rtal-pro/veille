@@ -209,29 +209,58 @@ en plus, pas un rouage.
 - **Modèles épinglés** (décision explicite, ajustable seulement par le Superviseur via
   `--model`/`--max-turns`, jamais par les autres agents) :
 
-  | Agent | Modèle | `--max-turns` | `timeout-minutes` |
-  |---|---|---|---|
-  | Instructeur | `claude-opus-5` | 100 | 50 |
-  | Kiosque | `claude-sonnet-5` | 100 | 50 |
-  | Contre-avocat | `claude-sonnet-5` | 80 | 35 |
-  | Rattrapage | `claude-sonnet-5` | 80 | 45 (skip si survivant récent, fenêtre 3 j) |
-  | Prospecteur | `claude-sonnet-5` | 70 | 35 |
-  | Fossoyeur | `claude-sonnet-5` | 90 | 45 |
-  | Atelier | `claude-sonnet-5` | 60 | 35 |
-  | Superviseur | `claude-sonnet-5` | 100 | 45 |
+  | Agent | Modèle | `--max-turns` | `timeout-minutes` | Temps agent mesuré |
+  |---|---|---|---|---|
+  | Instructeur | `claude-opus-5` | 145 | 50 | 8 min 54 |
+  | Kiosque | `claude-sonnet-5` | 150 | 50 | 11 min 52 |
+  | Contre-avocat | `claude-sonnet-5` | 110 | 35 | 1 min 21 |
+  | Rattrapage | `claude-sonnet-5` | 110 | 45 (skip si survivant récent, fenêtre 3 j) | 13 min 18 |
+  | Prospecteur | `claude-sonnet-5` | 90 | 35 | 3 min 46 |
+  | Fossoyeur | `claude-sonnet-5` | 120 | 45 | ~8 min 43 * |
+  | Atelier | `claude-sonnet-5` | 90 | 35 | 2 min 55 |
+  | Superviseur | `claude-sonnet-5` | 120 | 45 | ~8 min 56 * |
 
   Seul l'**Instructeur** tourne sur Opus (le cœur du pipeline, le plus qualitatif à
   soigner) ; les six autres sur Sonnet 5, plus efficace en quota qu'un modèle par
   défaut plus lourd.
-- **Quota Claude Max** : les agents consomment ton quota d'abonnement (fenêtres
-  glissantes). Le pipeline principal tourne à **04:30 UTC**. S'il se heurte à un quota
-  épuisé (jobs en échec rapide, signature « infra »), la **passe filet de 15:00 UTC**
-  rejoue le même workflow : la porte (`select … from verdicts where
-  date_run=current_date`) saute le jugement instantanément si le verdict du jour existe
-  déjà (~1 min de runner, 0 quota consommé pour la partie jugement) et ne le relance que
-  si la journée n'est pas bouclée — la journée de quota épuisé à 04:30 est rattrapée
-  sans double mémo. Si le quota mord quand même sur ton usage perso, baisse d'abord les
-  `--max-turns`, ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "30 4 */2 * *"`).
+
+  **Temps agent mesuré** : durée réelle du step `anthropics/claude-code-action` sur la
+  passe mémo du 2026-09-21 (run `35568391153`) — soit **42 min 06 d'agents pour une
+  journée**. (*) Fossoyeur et Superviseur sont hebdomadaires et n'y figurent pas : leur
+  chiffre est la durée du job entier (runs `35506942627` du 20/09 et `35454000380` du
+  19/09), checkout compris, donc légèrement surestimée.
+
+  **Cette table dérive, par construction.** `scripts/valider.sh` autorise le Superviseur
+  à modifier `--max-turns` (règle 4bis, chemin `jobs.*.steps.*.with.claude_args`) mais
+  lui interdit de toucher au README (règle 2 : whitelist limitée aux `prompts/*.md` et
+  aux deux workflows agents). Il peut donc relever un budget sans jamais pouvoir le
+  documenter. Constaté le 2026-09-21 : la table annonçait encore 640 tours cumulés quand
+  les workflows en déclaraient 935 (+46 %). **La source de vérité, ce sont les
+  `claude_args` des workflows** — `grep claude_args .github/workflows/*.yml` les donne
+  tous en une ligne. Cette table est un instantané daté, à revérifier à chaque lecture.
+- **Quota Claude Max** : c'est la SEULE ressource que le pipeline épuise vraiment — les
+  minutes GitHub sont gratuites (repo public), la facturation GitHub renvoie
+  `billable.UBUNTU.total_ms: 0` sur tous les runs. Les agents consomment ton quota
+  d'abonnement (fenêtres glissantes). Le cron mémo est à **01:20 UTC** (et non 04:30 :
+  avancé le 2026-09-14 pour absorber les +4 h à +5 h 30 de retard de déclenchement de
+  GitHub — voir le commentaire en tête du workflow). S'il se heurte à un quota épuisé
+  (jobs en échec rapide, signature « infra »), la **passe filet de 15:00 UTC** rejoue le
+  même workflow : la porte (`select … from verdicts where date_run=current_date`) saute
+  tout instantanément si le verdict du jour existe déjà, et ne relance la journée que si
+  elle n'est pas bouclée — la journée de quota épuisé au matin est rattrapée sans double
+  mémo. Si le quota mord quand même sur ton usage perso, baisse d'abord les
+  `--max-turns`, ou passe Kiosque/Prospecteur à 1 jour sur 2 (`cron: "0 15 */2 * *"`).
+
+  **Correctif du 2026-09-21 — le filet n'était gratuit qu'à moitié.** Cette section
+  affirmait « ~1 min de runner, 0 quota consommé ». C'était vrai du jugement seul :
+  `instructeur`, `contre-avocat`, `rattrapage` et `atelier` portaient bien le garde
+  `needs.porte.outputs.deja_fait != '1'`, mais `kiosque` et `prospecteur` n'avaient
+  AUCUN `if:` et rejouaient la récolte entière tous les après-midis. Mesuré sur le run
+  `35647201102` (filet du 21/09) : les 4 jobs de jugement `skipped`, mais kiosque
+  14 min 18 et prospecteur 6 min 17 — **20 min 35 de quota**, soit 33 % des 62 min 41
+  d'agents de la journée, dépensés à re-récolter un jour déjà bouclé. Les deux jobs de
+  récolte portent désormais le même garde ; la passe filet d'un jour bouclé coûte
+  maintenant réellement ~1 min de runner et 0 quota.
 
   **N'ajoute pas de troisième cron.** Mesure du 2026-08-31 sur les logs de la porte :
   avec 1 seul cron, GitHub déclenchait à +29/+42 min de l'heure demandée, tous les

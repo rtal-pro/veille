@@ -144,6 +144,19 @@ jobs:
 
   kiosque:
     needs: [porte]
+    # Même garde que les jobs de jugement, mais sur le SEUL deja_fait : la passe
+    # filet de 15:00 ne re-récolte que si la journée n'est pas bouclée.
+    # Jusqu'au 2026-09-21, kiosque et prospecteur n'avaient AUCUN `if:` — ils
+    # rejouaient la récolte entière tous les après-midis, mémo déjà écrit ou non.
+    # Mesuré sur le run 35647201102 (filet du 21/09) : instructeur/contre-avocat/
+    # rattrapage/atelier `skipped` comme prévu, mais kiosque 14 min 18 et
+    # prospecteur 6 min 17 d'agent, soit 20 min 35 de quota — 33 % de la journée
+    # (62 min 41) dépensés à re-récolter. Le README annonçait pourtant « ~1 min de
+    # runner, 0 quota consommé » pour cette passe : c'était vrai du jugement seul.
+    # PAS de garde sur `memo` volontairement : porte_memo.sh rend 1 pour tout
+    # déclencheur aujourd'hui, mais sa liste noire prévoit de réintroduire une
+    # passe de récolte pure — l'y inclure éteindrait la récolte ce jour-là.
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     env:
@@ -158,6 +171,8 @@ jobs:
 
   prospecteur:
     needs: [porte]
+    # Même garde que kiosque, même raison (voir le bloc au-dessus).
+    if: ${{ !cancelled() && needs.porte.result == 'success' && needs.porte.outputs.deja_fait != '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
