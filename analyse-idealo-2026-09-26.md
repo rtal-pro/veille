@@ -125,3 +125,70 @@ peut être passée telle quelle comme lead au pipeline.
 10. [TechCrunch — Google must pay €572M (idealo + Producto)](https://techcrunch.com/2025/11/14/german-court-rules-google-must-pay-e572m-for-violating-antitrust-rules-in-price-comparison-sector/)
 11. [Kluwer Competition Law Blog — Google Shopping v. Idealo](https://legalblogs.wolterskluwer.com/competition-blog/google-shopping-v-idealo-the-largest-damages-award-in-competition-law-history-by-a-german-court-commentary-on-the-judgment-of-the-berlin-ii-regional-court-dated-november-13-2025-16-o-19519-kart-2/)
 12. [iProspect — Google Shopping s'ouvre aux comparateurs concurrents](https://iprospect.com/fr/fr/publications/le-blog/google-shopping-concurrence) · [Dropizi — Top comparateurs 2026](https://www.dropizi.fr/blog/comparateur-prix)
+
+---
+
+## 7. Recherche de niche (26/09/2026) : 15 niches passées aux 3 tests
+
+Méthode : 3 recherches parallèles, WebSearch uniquement. idealo.fr était inaccessible
+partout : sa couverture reste **[INCONNU]** pour toutes les niches. Aucun volume de
+mots-clés public n'a été trouvé : **[INCONNU]** partout. La base de la veille (`prospection_clones`)
+ne contenait aucun comparateur grand public déjà instruit.
+
+| Niche | T1 absorption | T2 offre / affiliation | Verdict |
+|---|---|---|---|
+| Pièces auto (réf. OEM) | MagicParts, Vos-Pièces-Auto, La Bonne Réf [PROUVÉ] | Oscaro 6-8 %, Autodoc 4-8 % | **MORT** |
+| Pièces moto | mes-pieces-moto, achatmoinscher [PROUVÉ] | Motoblouz ~4 % | **MORT** |
+| Motoculture | Sparepilot : 480 k pièces, références croisées OEM [PROUVÉ] | ≥10 marchands | **MORT** |
+| Fournitures dentaires | Coompy, Comparapex (abonnement), ComparaDent, DentalHub [PROUVÉ] | ≥9 marchands | **MORT** (modèle validé, place prise) |
+| Outillage pro BTP | pas de spécialiste, mais EAN de marque → généralistes | ManoMano 7 % | **MORT** |
+| Lait 1er âge | — | publicité interdite (L.121-51) [PROUVÉ] | **MORT** |
+| Cartouches d'encre | acheter-encre, easycartouche ; leDénicheur 27 offres/réf [PROUVÉ] | Inkadoo 20 % compatibles | DOUTEUX (saturé, déclin) |
+| Parapharmacie / compléments | Unooc, paracompa, touslesprix [PROUVÉ] | 8-10 % (meilleures commissions) | DOUTEUX (occupé) |
+| Croquettes | **petscompare.fr** = exactement ce projet [PROUVÉ] | Zooplus 1-3 %, Wanimo 4-10 % | DOUTEUX (petfood 6,7 Md€) |
+| Pièces vélo | LeGuide, 123comparer [PROUVÉ] | Alltricks 3-7 % | DOUTEUX (1,12 Md€, bon rapprochement) |
+| Couches | leDénicheur [PROUVÉ] | marges faibles | DOUTEUX |
+| Beauté / coiffure pro | aucun spécialiste [PROUVÉ] | ≥10 marchands, Awin | DOUTEUX (vendu aussi aux particuliers) |
+| CHR / emballages | aucun spécialiste [PROUVÉ] | ≥10, Nisbets Awin | DOUTEUX (rapprochement dur) |
+| Paramédical (IDEL) | aucun comparateur [PROUVÉ] | ≥10, Girodmedical ≤10 % | DOUTEUX (99 200 IDEL, petits paniers) |
+| Pièces électroménager | Prix.net a une catégorie, **pas de spécialiste par réf.** [PROUVÉ/PROBABLE] | ≥10 marchands ; affiliation Spareka/1001pieces non prouvée | DOUTEUX, le plus prometteur des pièces |
+| **Filtres par compatibilité + piscine/spa** | **aucun spécialiste repéré** [PROUVÉ] ; leDénicheur couvre les références de marque (Brita, Bayrol) | Kwanko/Awin piscine 4,5-5 % ; SOS Accessoire, Jeremplace… | **VIVANT sous réserve** |
+
+### Niche retenue [PROBABLE] : « le bon consommable pour MON appareil, au meilleur prix »
+
+On fusionne les deux candidats les mieux placés : pièces d'usure électroménager et filtres/piscine.
+L'utilisateur saisit **le modèle de son appareil**, qu'il s'agisse d'une hotte, d'un aspirateur,
+d'un frigo américain, d'une carafe, d'une piscine ou d'un spa. Le site renvoie les consommables
+compatibles (filtre, sac, courroie, joint, cartouche), triés par prix total entre les
+marchands, avec une alerte de réassort et une alerte prix.
+
+- **Pourquoi ça résiste aux généralistes** : idealo, leDénicheur et Google comparent une *référence*.
+  Ici, la difficulté est de savoir *quelle* référence va sur *quel* appareil. La table de
+  compatibilité est à la fois le coût d'entrée et le fossé. C'est le même mécanisme que Sparepilot
+  en motoculture, qui a fait de ses références croisées son avantage [PROUVÉ que Sparepilot le revendique].
+- **Récurrence** : un filtre ou un sac se rachète tous les 3 à 12 mois, donc l'alerte de réassort
+  a une vraie raison d'exister [PROBABLE].
+- **Demande** : 1,9 M de réparations financées par le Bonus Réparation en 3 ans, 3,7 M de piscines
+  familiales [PROUVÉ]. Le volume de recherche « filtre + modèle » reste [INCONNU].
+
+### Ce qui peut encore la tuer (à vérifier, dans cet ordre)
+
+1. **Affiliation** : ≥10 marchands affiliés sur la niche ? Non prouvé pour Spareka, SOS Accessoire,
+   1001pieces ni pour les pure players piscine. À vérifier dans les annuaires Awin, Effiliation et Kwanko.
+2. **Source de la compatibilité** : les flux des marchands contiennent-ils un champ « compatible avec »
+   exploitable, ou faut-il construire la table à la main ? [INCONNU], c'est le point qui décide du coût.
+3. **Volume** : Google Keyword Planner sur 20 requêtes du type « filtre hotte <marque modèle> ».
+4. **Couverture idealo** : vérifier à la main sur 10 références, puisque le site était bloqué ici.
+5. **Saisonnalité piscine** : le trafic sera concentré d'avril à août [PROBABLE]. L'électroménager lisse sur l'année.
+
+Repli si le test 1 ou 2 échoue : paramédical pour infirmiers libéraux (terrain libre, mais petits
+paniers), puis croquettes en challenger de petscompare.
+
+Sources supplémentaires : petscompare.fr · sparepilot.com/about · coompy.fr · comparapex.fr ·
+magicparts.co · prix.net/categories/pieces-detachees-electromenager-26253.html ·
+ledenicheur.fr/s/brita-maxtra-pro/ · ui.awin.com/merchant-profile/13256 ·
+decouvrir.ecosystem.eco/actualites/bonus-reparation-3ans ·
+idees-piscine.com/marche-de-la-piscine-un-automne-2025-prometteur-qui-confirme-le-rebond/ ·
+drees.solidarites-sante.gouv.fr/sites/default/files/2024-06/DM15.pdf ·
+renseignementeconomique.fr/le-marche-du-petfood-pese-6-7-milliards-en-2025-et-profite-aux-enseignes-specialisees ·
+ordre.pharmacien.fr (interdiction publicité préparations pour nourrissons)
