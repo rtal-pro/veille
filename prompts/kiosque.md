@@ -618,6 +618,13 @@ Superviseur (`v_sante_pipeline.inserts_declares` vs `leads_reels`) : un nombre q
 désigne pas des leads le rend inutilisable. Vérifie avant d'écrire :
 `SELECT count(*) FROM prospection_clones WHERE date_run = CURRENT_DATE;`
 
+**Même discipline pour `metriques.insertions` (sources créées, pas les leads) : vérifie,
+ne compte pas de tête.** `SELECT count(*) FROM sources WHERE created_at::date = CURRENT_DATE;`
+— mesure du 2026-09-26 sur 15 jours glissants : la somme quotidienne déclarée par
+Kiosque+Prospecteur dans `metriques.insertions` dépasse ce chiffre réel 15 jours sur 15
+(écart moyen +5,9/jour). Le champ sert au même recoupement anti-mensonge que
+`candidats_inseres` : un nombre gonflé le rend tout aussi inutilisable.
+
 Fin de run : journal `veille_runs` (agent='kiosque') — y compris les terriers suivis
 et ce qu'ils ont donné, les requêtes libres qui ont payé (elles nourrissent les runs
 suivants), ET les 2-3 requêtes stériles qui semblaient prometteuses — pour que la
