@@ -72,3 +72,10 @@ pas `prospection_clones`). Le nombre de sources insérées va dans `metriques.in
 jamais dans `candidats_inseres` : ce champ sert au recoupement anti-mensonge du
 Superviseur (`v_sante_pipeline.inserts_declares` vs `leads_reels`) — y mettre un nombre
 de sources le rend inutilisable.
+
+**`metriques.insertions` n'est pas une estimation : vérifie-le avant d'écrire, comme
+`candidats_inseres`.** `SELECT count(*) FROM sources WHERE created_at::date = CURRENT_DATE;`
+— mesure du 2026-09-26 sur 15 jours glissants : la somme quotidienne déclarée par
+Kiosque+Prospecteur dans `metriques.insertions` dépasse ce chiffre réel 15 jours sur 15
+(écart moyen +5,9/jour, jamais négatif). Compte les lignes créées aujourd'hui, ne les
+estime pas.
