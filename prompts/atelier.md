@@ -27,27 +27,30 @@ Pour chacun, remplis `score_atelier` (jsonb) :
  "dependances": ["API Colissimo", "..."],
  "mrr_12mois_realiste": "fourchette prudente si estimable, sinon 'non estimable'",
  "prix_envisage_mois": 149,
- "clients_pour_10k": 67,
+ "clients_pour_cible": 10,
  "canal_taille_lue": "12 400 installations de <app comparable> — <URL> | 'non chiffré'",
  "part_du_canal_requise": "0,5 %",
  "note_sur_10": 7,
  "verdict_office_hours": "BUILD | BUILD APRÈS TEST | FUIS"}
 ```
 
-**`clients_pour_10k` = 10000 / `prix_envisage_mois`, arrondi.** Ce champ existe parce que
-l'objectif du lecteur est **10 000 $/mois en self-serve**, et qu'un dossier peut être
-excellent et hors sujet. Il commande le verdict :
-- **au-dessus de 200 clients** → le verdict ne peut pas être `BUILD` : écris `BUILD APRÈS
+**`clients_pour_cible` = 1500 / `prix_envisage_mois`, arrondi.** Ce champ existe parce que
+l'objectif du lecteur est un **portefeuille** de 5 à 10 produits à 1 000-2 000 $/mois chacun
+(10 000 $/mois cumulés — constitution, amendement du 2026-10-05) : chaque produit se juge
+sur **1 500 $/mois**, jamais sur 10 000 $ à lui seul. Il commande le verdict :
+- **au-dessus de 100 clients** → le verdict ne peut pas être `BUILD` : écris `BUILD APRÈS
   TEST` au mieux, et dis en une phrase ce qu'il faudrait changer (prix, segment, offre) pour
-  que le chiffre descende. Un produit à 29 $/mois demande 345 clients : ce n'est pas un
-  échec du produit, c'est une inadéquation à l'objectif, et le lecteur doit la lire.
-- **sous 70 clients** → dis-le explicitement dans le mémo, c'est le profil rare.
-Mesure du 2026-09-14 : les trois seuls dossiers jamais scorés plafonnent à 2 000, 2 000 et
-4 000 $/mois de borne HAUTE à 12 mois. Aucun n'atteint l'objectif. Ce champ est là pour que
-ça se voie dans le mémo au lieu de se découvrir après le build.
+  que le chiffre descende. Un produit à 9 $/mois demande 167 clients : ce n'est pas un échec
+  du produit, c'est une inadéquation à l'objectif, et le lecteur doit la lire.
+- **sous 35 clients** → dis-le explicitement dans le mémo, c'est le profil le plus sûr.
+Les seuils 100 et 35 ont été posés le 2026-10-05 SANS mesure (règle des anciens 200 et 70,
+ramenée à la nouvelle cible) : recalibre-les sur les premiers builds, jamais avant.
+Mesure du 2026-09-14 : les trois seuls dossiers jamais scorés plafonnaient à 2 000, 2 000 et
+4 000 $/mois de borne HAUTE à 12 mois — hors objectif tant qu'un produit devait faire
+10 000 $, **dans** l'objectif depuis le passage au portefeuille.
 
-**`part_du_canal_requise` = `clients_pour_10k` ÷ la taille de canal lue par l'Instructeur.**
-C'est le chaînon manquant entre « idée prouvée » et « 10 000 $/mois », et c'est la phrase
+**`part_du_canal_requise` = `clients_pour_cible` ÷ la taille de canal lue par l'Instructeur.**
+C'est le chaînon manquant entre « idée prouvée » et « 1 500 $/mois », et c'est la phrase
 que le lecteur vient chercher : *combien de ce canal faut-il capter pour que ça marche ?*
 - **au-dessus de 10 %** → le verdict ne peut pas être `BUILD`. Capter un client sur dix d'un
   canal entier, personne ne le fait ; dis-le en une ligne, sans l'habiller.
@@ -162,7 +165,7 @@ Pour un **✅ RETENU**, et pour lui seul, ajoute au bas du bloc le `score_atelie
 ligne (note, semaines de build, barrières, dépendances, MRR réaliste, verdict office
 hours), puis ton mémo office hours — le « si tu étais en face de moi ».
 Cette ligne porte **toujours** les deux chiffres de l'objectif, même quand ils sont mauvais :
-`clients pour 10k : N` et `part du canal requise : X %` (ou « canal non chiffré »). Ce sont
+`clients pour 1 500 $ : N` et `part du canal requise : X %` (ou « canal non chiffré »). Ce sont
 les deux seuls nombres qui disent si le dossier sert l'objectif du lecteur ou s'il est
 simplement bon — et un dossier bon mais hors objectif doit se lire comme tel dès le mémo,
 pas se découvrir après quatre semaines de build.

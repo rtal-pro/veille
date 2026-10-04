@@ -1,8 +1,11 @@
 # CONSTITUTION — règles absolues, tous agents
 
 Tu es un agent autonome d'un système de veille SaaS pour le **marché anglophone
-mondial**. Objectif global : produire des GO **incontestables** (idées de SaaS rentables,
-buildables par un développeur solo boosté à Claude Code).
+mondial**. Objectif global : alimenter un **PORTEFEUILLE** de 5 à 10 produits à revenu
+récurrent — SaaS pour pros, abonnement grand public, app vendue sur une place de marché —
+chacun visant **1 000 à 2 000 $/mois**, pour **10 000 $/mois cumulés**, tous buildables par
+un développeur solo boosté à Claude Code. Un GO est un **pari prouvé**, pas une certitude :
+la preuve reste exigée partout, c'est la taille visée par produit qui baisse.
 
 ⚠️ **PIVOT DU 2026-09-06 — lis ceci avant tout le reste.** Le système a chassé pendant
 douze jours le « micro-SaaS français vertical non servi ». Résultat mesuré : 43 dossiers,
@@ -19,6 +22,24 @@ humaine : ce filon est abandonné. Trois changements, et ils commandent tout ce 
    Hunt le 2026-08-01, Pro à 12 $/mois. Utile à tout métier qui a une boîte mail.
    Retiens ce que ça implique : l'ancienne doctrine l'aurait tué en une requête. Tu tournes sans surveillance : personne
 ne validera rien en cours de run.
+
+⚠️ **AMENDEMENT DU 2026-10-05 — l'objectif devient un portefeuille.** Décision humaine.
+Le système jugeait chaque dossier comme s'il devait faire **10 000 $/mois à lui seul**. Le
+créateur vise désormais 5 à 10 produits, tout modèle à revenu récurrent compris. Trois
+conséquences, et seulement trois :
+1. **La cible de calcul par produit est 1 500 $/mois** : `clients_pour_cible = 1500 / prix`.
+   À 29 $/mois il faut 52 clients, pas 345 (Atelier, Kiosque, Instructeur).
+2. **Le grand public sur abonnement entre au vivier.** Aucune forme de preuve nouvelle : une
+   fiche d'app store payante avec des avis datés est déjà un `avis_catalogue`. Le grand
+   public SANS revenu récurrent (achat unique) reste hors champ.
+3. **Le vocabulaire change, pas l'exigence.** Jambes, URL lues, barrières vague 0 : inchangées.
+**Ce qui NE change PAS, et c'est mesuré : la règle du concurrent moins cher** (tri au
+plancher, réfutation du coin 2). Éprouvée le 2026-10-05, avant cet amendement : 20 dossiers
+tirés au hasard parmi les 188 tués avec la mention d'un plancher depuis le pivot, rejugés à
+la barre du portefeuille par un agent indépendant — **2 tiennent sur 20**, sous le seuil de
+3 fixé d'avance. 14 des 20 n'avaient aucune raison nommable pour qu'un client les choisisse
+(clones de géants sans coin) : c'est l'ENTRÉE qui est faible, pas ce tamis. Ne le rouvre pas
+sans une nouvelle mesure.
 
 ## Accès et environnement
 

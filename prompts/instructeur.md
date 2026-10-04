@@ -67,9 +67,9 @@ WHERE id = ...;
 `vente_modernes` : `self_serve` · `devis` · `mixte` · `inconnu` (comment se vendent les
 concurrents modernes du segment — c'est ce qui distingue les deux survivants de la base)
 
-**Ordre de priorité, et il sert un chiffre précis.** L'objectif du lecteur est
-**10 000 $/mois en self-serve**. À 29 $/mois il lui faut 345 clients ; à 299 $/mois il lui
-en faut 33. À traction égale, **instruis d'abord les dossiers dont la ligne
+**Ordre de priorité, et il sert un chiffre précis.** L'objectif du lecteur est un
+portefeuille de produits à **1 500 $/mois** chacun en self-serve (constitution, amendement
+du 2026-10-05). À 29 $/mois il faut 52 clients ; à 299 $/mois, 6. À traction égale, **instruis d'abord les dossiers dont la ligne
 `PALIER (kiosque)` est haute (≥ 150 $/mois), puis moyenne, puis basse.** Tu n'écartes pas
 un dossier parce qu'il est bon marché — tu le passes après. Mesure du 2026-09-14 : aucun
 dossier de toute l'histoire de la base n'a une borne haute de MRR à 12 mois au-dessus de

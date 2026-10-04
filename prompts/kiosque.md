@@ -88,7 +88,10 @@ survolées, et une tranche laissée `vierge` sera reprise, ce qui est sans domma
 - **Les MARKETPLACES D'APPS sont des terrains de carte, au même titre que Capterra —
   ouvre-les** (ajouté le 2026-09-14). Shopify App Store, Square App Marketplace, Toast
   Partner Directory, Slack App Directory, Atlassian Marketplace, HubSpot, monday.com,
-  WordPress.org, Chrome Web Store. Pourquoi ils marchent là où `empireflippers` a échoué :
+  WordPress.org, Chrome Web Store — et, depuis le 2026-10-05, **Apple App Store et Google
+  Play** pour les apps grand public à abonnement (constitution, amendement du 2026-10-05 :
+  prix de l'abonnement + avis datés sur la fiche = `avis_catalogue`). Pourquoi ils marchent
+  là où `empireflippers` a échoué :
   ce sont des **catalogues de catégories où la preuve de paiement est affichée à côté de
   chaque produit** (compteur d'installations, compteur d'avis, prix du plan) — exactement
   la propriété qui fait de Capterra le seul terrain productif de ce système. Le nombre
@@ -225,16 +228,17 @@ seule laisse.
   d'Opus par dossier, et c'est elle qui plafonne le pipeline à 4 instructions par jour pour
   13 leads entrants.
 
-- **Le PALIER de prix — le critère qui sert l'objectif, et il est nouveau.** L'objectif du
-  lecteur est **10 000 $/mois en self-serve**. Ce seul chiffre commande quel gibier vaut la
-  peine d'être rapporté :
+- **Le PALIER de prix — le critère qui sert l'objectif.** L'objectif du lecteur est un
+  **portefeuille** de 5 à 10 produits à **1 500 $/mois** chacun en self-serve (constitution,
+  amendement du 2026-10-05 — plus 10 000 $ pour un seul produit). Ce chiffre dit combien de
+  clients chaque gibier demande :
 
-  | Prix du produit visé | Clients nécessaires pour 10k/mois |
+  | Prix du produit visé | Clients nécessaires pour 1 500 $/mois |
   |---|---|
-  | 29 $/mois | **345** — hors d'atteinte pour un dev seul en self-serve |
-  | 99 $/mois | 101 |
-  | 149 $/mois | 67 |
-  | 299 $/mois | **33** — atteignable |
+  | 9 $/mois | **167** — lourd pour un produit parmi cinq à dix |
+  | 29 $/mois | 52 |
+  | 99 $/mois | 15 |
+  | 299 $/mois | **5** |
 
   Écris donc en DEUXIÈME ligne de `concurrents` :
   `PALIER (kiosque) : <prix d'entrée public du produit source> — <haut/moyen/bas>` —
@@ -243,8 +247,8 @@ seule laisse.
   égale sur la traction, **rapporte en priorité le palier haut**. Mesure du 2026-09-14 :
   prix médian du produit source chez les deux survivants = **9 $** ; chez les écartés 42 $ ;
   chez les tués 80 $. Aucun dossier de toute l'histoire de la base n'a une borne haute de MRR
-  à 12 mois supérieure à 4 000 $/mois — la machine chassait un étage trop bas pour l'objectif
-  qu'on lui demande d'atteindre.
+  à 12 mois supérieure à 4 000 $/mois — un étage trop bas tant qu'un produit devait faire
+  10 000 $ seul ; à 1 500 $ par produit, c'est l'étage visé.
   Effet de bord utile : le palier haut est aussi l'étage où l'occupant gratuit se raréfie.
   Un concurrent à 0 $ tue un produit à 29 $ ; il ne tue pas un produit à 299 $, parce que
   l'acheteur à 299 $ ne magasine pas du gratuit. Les deux problèmes ont la même sortie.
@@ -375,7 +379,9 @@ PRODUCTIF pour digest, **STÉRILE pour la chasse (0 JTBD vertical)** ». Résult
 « gisement primaire ». Depuis le pivot, **un job HORIZONTAL est le gibier**, pas un motif
 de renvoi vers la liste de lecture. Un produit horizontal qui porte une preuve de paiement
 va dans `prospection_clones`, pas dans `nouveautes`.
-Écarte le grand public, les jouets, les listes d'IA génériques. Pour chacun :
+Écarte les jouets et les listes d'IA génériques. Le grand public n'est plus écarté
+(amendement constitutionnel du 2026-10-05) **s'il se paie par abonnement** ; un achat
+unique reste hors champ. Pour chacun :
 
 ```sql
 INSERT INTO nouveautes (terrain, nom, resume, url)
